@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/database_helper.dart';
 import '../data/models.dart';
 import '../export/pdf_export.dart';
+import '../domain/calculators.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -31,6 +32,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final totalWorkedMillis = WorkTimeCalculator.calculateWorkedTime(_presences);
+    final workedTimeStr = WorkTimeCalculator.formatDuration(totalWorkedMillis);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Statistiques & Rapports'),
@@ -51,32 +55,59 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Card(
-                    elevation: 3,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Total des pointages enregistrés',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Card(
+                          elevation: 3,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                const Text(
+                                  'Pointages',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  '${_presences.length}',
+                                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue),
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 10),
-                          Text(
-                            '${_presences.length}',
-                            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue),
-                          ),
-                          const SizedBox(height: 15),
-                          ElevatedButton.icon(
-                            onPressed: _presences.isEmpty
-                                ? null
-                                : () => PdfExport.generateAndPrintPdf(_presences),
-                            icon: const Icon(Icons.picture_as_pdf),
-                            label: const Text('Générer le rapport PDF'),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+                      Expanded(
+                        child: Card(
+                          elevation: 3,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                const Text(
+                                  'Temps Total',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  workedTimeStr,
+                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  ElevatedButton.icon(
+                    onPressed: _presences.isEmpty
+                        ? null
+                        : () => PdfExport.generateAndPrintPdf(_presences),
+                    icon: const Icon(Icons.picture_as_pdf),
+                    label: const Text('Générer le rapport PDF complet'),
                   ),
                   const SizedBox(height: 20),
                   const Text(
