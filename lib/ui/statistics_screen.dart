@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/database_helper.dart';
 import '../data/models.dart';
+import '../export/pdf_export.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -21,6 +22,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   Future<void> _loadPresences() async {
     final presences = await DatabaseHelper.instance.getAllPresences();
+    if (!mounted) return;
     setState(() {
       _presences = presences;
       _isLoading = false;
@@ -32,6 +34,15 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Statistiques & Rapports'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            tooltip: 'Exporter en PDF',
+            onPressed: _presences.isEmpty
+                ? null
+                : () => PdfExport.generateAndPrintPdf(_presences),
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -54,6 +65,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                           Text(
                             '${_presences.length}',
                             style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue),
+                          ),
+                          const SizedBox(height: 15),
+                          ElevatedButton.icon(
+                            onPressed: _presences.isEmpty
+                                ? null
+                                : () => PdfExport.generateAndPrintPdf(_presences),
+                            icon: const Icon(Icons.picture_as_pdf),
+                            label: const Text('Générer le rapport PDF'),
                           ),
                         ],
                       ),
