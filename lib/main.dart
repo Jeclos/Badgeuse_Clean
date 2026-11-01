@@ -776,6 +776,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
                 ExpansionTile(
+                  leading: const Icon(Icons.work),
+                  title: const Text('Lieux de travail'),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: SizedBox(
+                        height: 400,
+                        child: const LocationsScreen(),
+                      ),
+                    ),
+                  ],
+                ),
+                ExpansionTile(
                   leading: const Icon(Icons.restaurant),
                   title: const Text('Pause déjeuner'),
                   children: [
@@ -814,20 +827,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
                 const ExpansionTile(
-                  leading: Icon(Icons.work),
-                  title: Text('Lieux de travail'),
-                  children: [
-                    ListTile(title: Text('Gérer les lieux de travail')),
-                  ],
-                ),
-                const ExpansionTile(
                   leading: Icon(Icons.palette),
                   title: Text('Apparence'),
                   children: [
                     ListTile(title: Text('Thème sombre / clair')),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 30),
                 ElevatedButton.icon(
                   onPressed: _saveSettings,
                   icon: const Icon(Icons.save),
