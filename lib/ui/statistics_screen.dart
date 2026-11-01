@@ -14,25 +14,56 @@ class StatisticsScreen extends StatefulWidget {
 
 class _StatisticsScreenState extends State<StatisticsScreen> {
   List<PresenceEntity> _presences = [];
+  List<WorkLocationEntity> _locations = [];
   bool _isLoading = true;
+
+  String _selectedPeriod = 'Cette semaine';
+  String _selectedLocation = 'Tous les lieux';
+
+  final List<String> _periods = [
+    'Cette semaine',
+    'Semaine précédente',
+    'Ce mois',
+    'Mois précédent',
+    'Personnalisé'
+  ];
 
   @override
   void initState() {
     super.initState();
-    _loadPresences();
+    _loadData();
   }
 
-  Future<void> _loadPresences() async {
+  Future<void> _loadData() async {
     final presences = await DatabaseHelper.instance.getAllPresences();
+    final locations = await DatabaseHelper.instance.getAllWorkLocations();
     if (!mounted) return;
     setState(() {
       _presences = presences;
+      _locations = locations;
       _isLoading = false;
     });
   }
 
+  List<PresenceEntity> get _filteredPresences {
+    return _presences.where((p) {
+      if (_selectedLocation != 'Tous les lieux' && p.locationName != _selectedLocation) {
+        return false;
+      }
+      final date = DateTime.fromMillisecondsSinceEpoch(p.timestamp);
+      final now = DateTime.now();
+      if (_selectedPeriod == 'Cette semaine') {
+        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+        return date.isAfter(DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day));
+      } else if (_selectedPeriod == 'Ce mois') {
+        return date.year == now.year && date.month == now.month;
+      }
+      return true;
+    }).toList();
+  }
+
   void _exportCsv() {
-    final csv = CsvExport.generateCsv(_presences);
+    final csv = CsvExport.generateCsv(_filteredPresences);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -55,126 +86,117 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalWorkedMillis = WorkTimeCalculator.calculateWorkedTime(_presences);
+    final filtered = _filteredPresences;
+    final totalWorkedMillis = WorkTimeCalculator.calculateWorkedTime(filtered);
     final workedTimeStr = WorkTimeCalculator.formatDuration(totalWorkedMillis);
+
+    const overtimeMillis = 0;
+    final overtimeStr = WorkTimeCalculator.formatDuration(overtimeMillis);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Statistiques & Rapports'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
-            tooltip: 'Exporter en PDF',
-            onPressed: _presences.isEmpty
-                ? null
-                : () => PdfExport.generateAndPrintPdf(_presences),
-          ),
-          IconButton(
-            icon: const Icon(Icons.table_chart),
-            tooltip: 'Exporter en CSV',
-            onPressed: _presences.isEmpty ? null : _exportCsv,
-          ),
-        ],
+        title: const Text('Statistiques'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              child: ListView(
                 children: [
                   Row(
                     children: [
                       Expanded(
                         child: Card(
-                          elevation: 3,
+                          elevation: 2,
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'Pointages',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                                ),
+                                const Text('Temps total', style: TextStyle(color: Colors.grey, fontSize: 13)),
                                 const SizedBox(height: 5),
-                                Text(
-                                  '${_presences.length}',
-                                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue),
-                                ),
+                                Text(workedTimeStr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Card(
-                          elevation: 3,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              children: [
-                                const Text(
-                                  'Temps Total',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 5),
-                                Text(
-                                  workedTimeStr,
-                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 15),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _presences.isEmpty
-                              ? null
-                              : () => PdfExport.generateAndPrintPdf(_presences),
-                          icon: const Icon(Icons.picture_as_pdf),
-                          label: const Text('Rapport PDF'),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _presences.isEmpty ? null : _exportCsv,
-                          icon: const Icon(Icons.table_chart),
-                          label: const Text('Export CSV'),
+                        child: Card(
+                          elevation: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Heures sup.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                                const SizedBox(height: 5),
+                                Text(overtimeStr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'Résumé des activités',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: _presences.isEmpty
-                        ? const Center(child: Text('Aucune donnée statistique disponible'))
-                        : ListView.builder(
-                            itemCount: _presences.length,
-                            itemBuilder: (context, index) {
-                              final item = _presences[index];
-                              final date = DateTime.fromMillisecondsSinceEpoch(item.timestamp);
-                              return ListTile(
-                                leading: Icon(
-                                  item.type == 'ENTRÉE' ? Icons.login : Icons.logout,
-                                  color: item.type == 'ENTRÉE' ? Colors.green : Colors.red,
-                                ),
-                                title: Text('${item.type} - ${item.locationName}'),
-                                subtitle: Text('${date.day}/${date.month}/${date.year} à ${date.hour}:${date.minute.toString().padLeft(2, '0')}'),
-                              );
+                  Card(
+                    elevation: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Période', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                          DropdownButtonFormField<String>(
+                            value: _selectedPeriod,
+                            decoration: const InputDecoration(border: UnderlineInputBorder()),
+                            items: _periods.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _selectedPeriod = val;
+                                });
+                              }
                             },
                           ),
+                          const SizedBox(height: 15),
+                          const Text('Emplacement', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                          DropdownButtonFormField<String>(
+                            value: _selectedLocation,
+                            decoration: const InputDecoration(border: UnderlineInputBorder()),
+                            items: [
+                              const DropdownMenuItem(value: 'Tous les lieux', child: Text('Tous les lieux')),
+                              ..._locations.map((l) => DropdownMenuItem(value: l.name, child: Text(l.name))),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _selectedLocation = val;
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('Détail journalier', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    onPressed: filtered.isEmpty ? null : _exportCsv,
+                    icon: const Icon(Icons.download),
+                    label: const Text('Exporter en CSV'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade200, foregroundColor: Colors.black54),
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    onPressed: filtered.isEmpty ? null : () => PdfExport.generateAndPrintPdf(filtered),
+                    icon: const Icon(Icons.picture_as_pdf),
+                    label: const Text('Exporter en PDF'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade200, foregroundColor: Colors.black54),
                   ),
                 ],
               ),

@@ -447,6 +447,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _showModeInfo(String title, String content) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -495,117 +511,153 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   leading: const Icon(Icons.tune),
                   title: const Text('Mode de badgeage'),
                   children: [
-                    RadioListTile<String>(
+                    ListTile(
                       title: const Text('Bureau / Multi-lieux'),
-                      value: 'OFFICE',
-                      groupValue: _settings.badgeMode,
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() {
-                            _settings = SettingsEntity(
-                              enterDistance: _settings.enterDistance,
-                              enterDelaySec: _settings.enterDelaySec,
-                              exitDelaySec: _settings.exitDelaySec,
-                              employeeName: _empNameController.text,
-                              employeeAddress: _empAddressController.text,
-                              employerName: _employerNameController.text,
-                              employerAddress: _employerAddressController.text,
-                              cityPdf: _cityPdfController.text,
-                              badgeMode: val,
-                              lunchBreakEnabled: _settings.lunchBreakEnabled,
-                              lunchStartHour: _settings.lunchStartHour,
-                              lunchStartMin: _settings.lunchStartMin,
-                              lunchEndHour: _settings.lunchEndHour,
-                              lunchEndMin: _settings.lunchEndMin,
-                              lunchDurationMin: _settings.lunchDurationMin,
-                            );
-                          });
-                        }
-                      },
+                      leading: Radio<String>(
+                        value: 'OFFICE',
+                        groupValue: _settings.badgeMode,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _settings = SettingsEntity(
+                                enterDistance: _settings.enterDistance,
+                                enterDelaySec: _settings.enterDelaySec,
+                                exitDelaySec: _settings.exitDelaySec,
+                                employeeName: _empNameController.text,
+                                employeeAddress: _empAddressController.text,
+                                employerName: _employerNameController.text,
+                                employerAddress: _employerAddressController.text,
+                                cityPdf: _cityPdfController.text,
+                                badgeMode: val,
+                                lunchBreakEnabled: _settings.lunchBreakEnabled,
+                                lunchStartHour: _settings.lunchStartHour,
+                                lunchStartMin: _settings.lunchStartMin,
+                                lunchEndHour: _settings.lunchEndHour,
+                                lunchEndMin: _settings.lunchEndMin,
+                                lunchDurationMin: _settings.lunchDurationMin,
+                              );
+                            });
+                          }
+                        },
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.info_outline, color: Colors.blue),
+                        onPressed: () => _showModeInfo(
+                          'Mode OFFICE',
+                          'Mode multi-lieux classique.\n\nChaque lieu est géré indépendamment.\n\nFonctionnement :\n• Entrée automatique à l\'arrivée sur un lieu\n• Sortie automatique au départ du lieu\n• Plusieurs lieux possibles dans la même journée\n• Les temps sont calculés séparément pour chaque lieu',
+                        ),
+                      ),
                     ),
-                    RadioListTile<String>(
+                    ListTile(
                       title: const Text('Dépôt / Entrepôt'),
-                      value: 'DEPOT',
-                      groupValue: _settings.badgeMode,
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() {
-                            _settings = SettingsEntity(
-                              enterDistance: _settings.enterDistance,
-                              enterDelaySec: _settings.enterDelaySec,
-                              exitDelaySec: _settings.exitDelaySec,
-                              employeeName: _empNameController.text,
-                              employeeAddress: _empAddressController.text,
-                              employerName: _employerNameController.text,
-                              employerAddress: _employerAddressController.text,
-                              cityPdf: _cityPdfController.text,
-                              badgeMode: val,
-                              lunchBreakEnabled: _settings.lunchBreakEnabled,
-                              lunchStartHour: _settings.lunchStartHour,
-                              lunchStartMin: _settings.lunchStartMin,
-                              lunchEndHour: _settings.lunchEndHour,
-                              lunchEndMin: _settings.lunchEndMin,
-                              lunchDurationMin: _settings.lunchDurationMin,
-                            );
-                          });
-                        }
-                      },
+                      leading: Radio<String>(
+                        value: 'DEPOT',
+                        groupValue: _settings.badgeMode,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _settings = SettingsEntity(
+                                enterDistance: _settings.enterDistance,
+                                enterDelaySec: _settings.enterDelaySec,
+                                exitDelaySec: _settings.exitDelaySec,
+                                employeeName: _empNameController.text,
+                                employeeAddress: _empAddressController.text,
+                                employerName: _employerNameController.text,
+                                employerAddress: _employerAddressController.text,
+                                cityPdf: _cityPdfController.text,
+                                badgeMode: val,
+                                lunchBreakEnabled: _settings.lunchBreakEnabled,
+                                lunchStartHour: _settings.lunchStartHour,
+                                lunchStartMin: _settings.lunchStartMin,
+                                lunchEndHour: _settings.lunchEndHour,
+                                lunchEndMin: _settings.lunchEndMin,
+                                lunchDurationMin: _settings.lunchDurationMin,
+                              );
+                            });
+                          }
+                        },
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.info_outline, color: Colors.blue),
+                        onPressed: () => _showModeInfo(
+                          'Mode DEPOT',
+                          'Mode dépôt / chantier (journée unique).\n\nFonctionnement :\n• Une seule journée de travail\n• L\'entrée correspond à la PREMIÈRE arrivée au dépôt\n• Les sorties avant l\'heure minimale sont ignorées\n• L\'heure de fin est une HEURE MINIMALE\n• La PREMIÈRE sortie APRÈS cette heure clôture la journée',
+                        ),
+                      ),
                     ),
-                    RadioListTile<String>(
+                    ListTile(
                       title: const Text('Départ domicile'),
-                      value: 'HOME_TRAVEL',
-                      groupValue: _settings.badgeMode,
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() {
-                            _settings = SettingsEntity(
-                              enterDistance: _settings.enterDistance,
-                              enterDelaySec: _settings.enterDelaySec,
-                              exitDelaySec: _settings.exitDelaySec,
-                              employeeName: _empNameController.text,
-                              employeeAddress: _empAddressController.text,
-                              employerName: _employerNameController.text,
-                              employerAddress: _employerAddressController.text,
-                              cityPdf: _cityPdfController.text,
-                              badgeMode: val,
-                              lunchBreakEnabled: _settings.lunchBreakEnabled,
-                              lunchStartHour: _settings.lunchStartHour,
-                              lunchStartMin: _settings.lunchStartMin,
-                              lunchEndHour: _settings.lunchEndHour,
-                              lunchEndMin: _settings.lunchEndMin,
-                              lunchDurationMin: _settings.lunchDurationMin,
-                            );
-                          });
-                        }
-                      },
+                      leading: Radio<String>(
+                        value: 'HOME_TRAVEL',
+                        groupValue: _settings.badgeMode,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _settings = SettingsEntity(
+                                enterDistance: _settings.enterDistance,
+                                enterDelaySec: _settings.enterDelaySec,
+                                exitDelaySec: _settings.exitDelaySec,
+                                employeeName: _empNameController.text,
+                                employeeAddress: _empAddressController.text,
+                                employerName: _employerNameController.text,
+                                employerAddress: _employerAddressController.text,
+                                cityPdf: _cityPdfController.text,
+                                badgeMode: val,
+                                lunchBreakEnabled: _settings.lunchBreakEnabled,
+                                lunchStartHour: _settings.lunchStartHour,
+                                lunchStartMin: _settings.lunchStartMin,
+                                lunchEndHour: _settings.lunchEndHour,
+                                lunchEndMin: _settings.lunchEndMin,
+                                lunchDurationMin: _settings.lunchDurationMin,
+                              );
+                            });
+                          }
+                        },
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.info_outline, color: Colors.blue),
+                        onPressed: () => _showModeInfo(
+                          'Mode HOME_TRAVEL',
+                          'Mode départ domicile.\n\nLa journée est calculée entre le domicile et le travail.\n\nFonctionnement :\n• Le départ du domicile démarre la journée\n• Le retour au domicile termine la journée\n• Le temps de trajet est automatiquement pris en compte',
+                        ),
+                      ),
                     ),
-                    RadioListTile<String>(
+                    ListTile(
                       title: const Text('Manuel uniquement'),
-                      value: 'MANUAL',
-                      groupValue: _settings.badgeMode,
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() {
-                            _settings = SettingsEntity(
-                              enterDistance: _settings.enterDistance,
-                              enterDelaySec: _settings.enterDelaySec,
-                              exitDelaySec: _settings.exitDelaySec,
-                              employeeName: _empNameController.text,
-                              employeeAddress: _empAddressController.text,
-                              employerName: _employerNameController.text,
-                              employerAddress: _employerAddressController.text,
-                              cityPdf: _cityPdfController.text,
-                              badgeMode: val,
-                              lunchBreakEnabled: _settings.lunchBreakEnabled,
-                              lunchStartHour: _settings.lunchStartHour,
-                              lunchStartMin: _settings.lunchStartMin,
-                              lunchEndHour: _settings.lunchEndHour,
-                              lunchEndMin: _settings.lunchEndMin,
-                              lunchDurationMin: _settings.lunchDurationMin,
-                            );
-                          });
-                        }
-                      },
+                      leading: Radio<String>(
+                        value: 'MANUAL',
+                        groupValue: _settings.badgeMode,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _settings = SettingsEntity(
+                                enterDistance: _settings.enterDistance,
+                                enterDelaySec: _settings.enterDelaySec,
+                                exitDelaySec: _settings.exitDelaySec,
+                                employeeName: _empNameController.text,
+                                employeeAddress: _empAddressController.text,
+                                employerName: _employerNameController.text,
+                                employerAddress: _employerAddressController.text,
+                                cityPdf: _cityPdfController.text,
+                                badgeMode: val,
+                                lunchBreakEnabled: _settings.lunchBreakEnabled,
+                                lunchStartHour: _settings.lunchStartHour,
+                                lunchStartMin: _settings.lunchStartMin,
+                                lunchEndHour: _settings.lunchEndHour,
+                                lunchEndMin: _settings.lunchEndMin,
+                                lunchDurationMin: _settings.lunchDurationMin,
+                              );
+                            });
+                          }
+                        },
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.info_outline, color: Colors.blue),
+                        onPressed: () => _showModeInfo(
+                          'Mode MANUAL_ONLY',
+                          'Mode manuel uniquement.\n\nAucune automatisation.\n\nFonctionnement :\n• Aucun badge automatique\n• Pas de détection GPS\n• Toutes les entrées et sorties sont manuelles',
+                        ),
+                      ),
                     ),
                   ],
                 ),
