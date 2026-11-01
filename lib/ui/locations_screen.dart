@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../data/database_helper.dart';
 import '../data/models.dart';
 import '../services/location_service.dart';
+import 'map_picker_screen.dart';
+import 'package:latlong2/latlong.dart';
 
 class LocationsScreen extends StatefulWidget {
   const LocationsScreen({super.key});
@@ -50,6 +52,28 @@ class _LocationsScreenState extends State<LocationsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Impossible d\'obtenir la position GPS. Vérifiez les permissions.')),
       );
+    }
+  }
+
+  Future<void> _openMapPicker() async {
+    final double? lat = double.tryParse(_latController.text);
+    final double? lon = double.tryParse(_lonController.text);
+
+    final LatLng? result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MapPickerScreen(
+          initialLat: lat ?? 48.8566,
+          initialLon: lon ?? 2.3522,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _latController.text = result.latitude.toStringAsFormatted();
+        _lonController.text = result.longitude.toStringAsFormatted();
+      });
     }
   }
 
@@ -177,10 +201,24 @@ class _LocationsScreenState extends State<LocationsScreen> {
                   ],
                 ),
                 const SizedBox(height: 15),
-                OutlinedButton.icon(
-                  onPressed: _getCurrentPosition,
-                  icon: const Icon(Icons.my_location),
-                  label: const Text('Utiliser ma position actuelle'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _getCurrentPosition,
+                        icon: const Icon(Icons.my_location),
+                        label: const Text('Ma position GPS'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _openMapPicker,
+                        icon: const Icon(Icons.map),
+                        label: const Text('Choisir sur la carte'),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 15),
                 ElevatedButton.icon(
