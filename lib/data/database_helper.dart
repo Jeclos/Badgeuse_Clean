@@ -20,8 +20,9 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -52,7 +53,19 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY,
         enterDistance REAL NOT NULL,
         enterDelaySec INTEGER NOT NULL,
-        exitDelaySec INTEGER NOT NULL
+        exitDelaySec INTEGER NOT NULL,
+        employeeName TEXT,
+        employeeAddress TEXT,
+        employerName TEXT,
+        employerAddress TEXT,
+        cityPdf TEXT,
+        badgeMode TEXT,
+        lunchBreakEnabled INTEGER,
+        lunchStartHour INTEGER,
+        lunchStartMin INTEGER,
+        lunchEndHour INTEGER,
+        lunchEndMin INTEGER,
+        lunchDurationMin INTEGER
       )
     ''');
 
@@ -62,7 +75,64 @@ class DatabaseHelper {
       'enterDistance': 300.0,
       'enterDelaySec': 60,
       'exitDelaySec': 60,
+      'employeeName': '',
+      'employeeAddress': '',
+      'employerName': '',
+      'employerAddress': '',
+      'cityPdf': '',
+      'badgeMode': 'OFFICE',
+      'lunchBreakEnabled': 1,
+      'lunchStartHour': 12,
+      'lunchStartMin': 0,
+      'lunchEndHour': 14,
+      'lunchEndMin': 0,
+      'lunchDurationMin': 90,
     });
+  }
+
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Recreate settings table or add columns if needed
+      await db.execute('DROP TABLE IF EXISTS settings');
+      await db.execute('''
+        CREATE TABLE settings (
+          id INTEGER PRIMARY KEY,
+          enterDistance REAL NOT NULL,
+          enterDelaySec INTEGER NOT NULL,
+          exitDelaySec INTEGER NOT NULL,
+          employeeName TEXT,
+          employeeAddress TEXT,
+          employerName TEXT,
+          employerAddress TEXT,
+          cityPdf TEXT,
+          badgeMode TEXT,
+          lunchBreakEnabled INTEGER,
+          lunchStartHour INTEGER,
+          lunchStartMin INTEGER,
+          lunchEndHour INTEGER,
+          lunchEndMin INTEGER,
+          lunchDurationMin INTEGER
+        )
+      ''');
+      await db.insert('settings', {
+        'id': 1,
+        'enterDistance': 300.0,
+        'enterDelaySec': 60,
+        'exitDelaySec': 60,
+        'employeeName': '',
+        'employeeAddress': '',
+        'employerName': '',
+        'employerAddress': '',
+        'cityPdf': '',
+        'badgeMode': 'OFFICE',
+        'lunchBreakEnabled': 1,
+        'lunchStartHour': 12,
+        'lunchStartMin': 0,
+        'lunchEndHour': 14,
+        'lunchEndMin': 0,
+        'lunchDurationMin': 90,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
   }
 
   // Presence methods

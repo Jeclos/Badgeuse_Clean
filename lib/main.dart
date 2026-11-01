@@ -125,51 +125,121 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _showEditPresenceDialog(PresenceEntity presence) {
-    final typeController = TextEditingController(text: presence.type);
+    DateTime selectedDate = DateTime.fromMillisecondsSinceEpoch(presence.timestamp);
+    TimeOfDay selectedTime = TimeOfDay.fromDateTime(selectedDate);
     final locationController = TextEditingController(text: presence.locationName);
+    String selectedType = presence.type;
 
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Modifier le pointage'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: typeController,
-              decoration: const InputDecoration(labelText: 'Type (ENTRÉE / SORTIE)'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Modifier la présence'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: selectedType,
+                  decoration: const InputDecoration(labelText: 'Type'),
+                  items: const [
+                    DropdownMenuItem(value: 'ENTRÉE', child: Text('Entrée')),
+                    DropdownMenuItem(value: 'SORTIE', child: Text('Sortie')),
+                    DropdownMenuItem(value: 'MANUAL', child: Text('Manuel')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setDialogState(() {
+                        selectedType = val;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: locationController,
+                  decoration: const InputDecoration(labelText: 'Lieu'),
+                ),
+                const SizedBox(height: 15),
+                const Text('Date', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                ListTile(
+                  title: Text('${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.year}'),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                    );
+                    if (pickedDate != null) {
+                      setDialogState(() {
+                        selectedDate = DateTime(
+                          pickedDate.year,
+                          pickedDate.month,
+                          pickedDate.day,
+                          selectedDate.hour,
+                          selectedDate.minute,
+                        );
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+                const Text('Heure', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                ListTile(
+                  title: Text('${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}'),
+                  trailing: const Icon(Icons.access_time),
+                  onTap: () async {
+                    final pickedTime = await showTimePicker(
+                      context: context,
+                      initialTime: selectedTime,
+                    );
+                    if (pickedTime != null) {
+                      setDialogState(() {
+                        selectedTime = pickedTime;
+                        selectedDate = DateTime(
+                          selectedDate.year,
+                          selectedDate.month,
+                          selectedDate.day,
+                          selectedTime.hour,
+                          selectedTime.minute,
+                        );
+                      });
+                    }
+                  },
+                ),
+              ],
             ),
-            TextField(
-              controller: locationController,
-              decoration: const InputDecoration(labelText: 'Lieu'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final nav = Navigator.of(dialogContext);
+                final db = await DatabaseHelper.instance.database;
+                await db.update(
+                  'presence',
+                  {
+                    'timestamp': selectedDate.millisecondsSinceEpoch,
+                    'type': selectedType,
+                    'locationName': locationController.text.trim(),
+                  },
+                  where: 'id = ?',
+                  whereArgs: [presence.id],
+                );
+                if (!mounted) return;
+                nav.pop();
+                await _loadData();
+              },
+              child: const Text('Valider'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final nav = Navigator.of(dialogContext);
-              final db = await DatabaseHelper.instance.database;
-              await db.update(
-                'presence',
-                {
-                  'type': typeController.text.trim(),
-                  'locationName': locationController.text.trim(),
-                },
-                where: 'id = ?',
-                whereArgs: [presence.id],
-              );
-              if (!mounted) return;
-              nav.pop();
-              await _loadData();
-            },
-            child: const Text('Enregistrer'),
-          ),
-        ],
       ),
     );
   }
@@ -322,10 +392,14 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  double _enterDistance = 300.0;
-  int _enterDelaySec = 60;
-  int _exitDelaySec = 60;
   bool _isLoading = true;
+  SettingsEntity _settings = SettingsEntity(enterDistance: 300, enterDelaySec: 60, exitDelaySec: 60);
+
+  final _empNameController = TextEditingController();
+  final _empAddressController = TextEditingController();
+  final _employerNameController = TextEditingController();
+  final _employerAddressController = TextEditingController();
+  final _cityPdfController = TextEditingController();
 
   @override
   void initState() {
@@ -337,24 +411,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final settings = await DatabaseHelper.instance.getSettings();
     if (!mounted) return;
     setState(() {
-      _enterDistance = settings.enterDistance;
-      _enterDelaySec = settings.enterDelaySec;
-      _exitDelaySec = settings.exitDelaySec;
+      _settings = settings;
+      _empNameController.text = settings.employeeName;
+      _empAddressController.text = settings.employeeAddress;
+      _employerNameController.text = settings.employerName;
+      _employerAddressController.text = settings.employerAddress;
+      _cityPdfController.text = settings.cityPdf;
       _isLoading = false;
     });
   }
 
   Future<void> _saveSettings() async {
-    await DatabaseHelper.instance.updateSettings(
-      SettingsEntity(
-        enterDistance: _enterDistance,
-        enterDelaySec: _enterDelaySec,
-        exitDelaySec: _exitDelaySec,
-      ),
+    final updated = SettingsEntity(
+      enterDistance: _settings.enterDistance,
+      enterDelaySec: _settings.enterDelaySec,
+      exitDelaySec: _settings.exitDelaySec,
+      employeeName: _empNameController.text.trim(),
+      employeeAddress: _empAddressController.text.trim(),
+      employerName: _employerNameController.text.trim(),
+      employerAddress: _employerAddressController.text.trim(),
+      cityPdf: _cityPdfController.text.trim(),
+      badgeMode: _settings.badgeMode,
+      lunchBreakEnabled: _settings.lunchBreakEnabled,
+      lunchStartHour: _settings.lunchStartHour,
+      lunchStartMin: _settings.lunchStartMin,
+      lunchEndHour: _settings.lunchEndHour,
+      lunchEndMin: _settings.lunchEndMin,
+      lunchDurationMin: _settings.lunchDurationMin,
     );
+
+    await DatabaseHelper.instance.updateSettings(updated);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Paramètres enregistrés avec succès')),
+      const SnackBar(content: Text('Configuration enregistrée avec succès')),
     );
   }
 
@@ -369,18 +458,155 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
-                const ExpansionTile(
-                  leading: Icon(Icons.badge),
-                  title: Text('Identité'),
+                ExpansionTile(
+                  leading: const Icon(Icons.badge),
+                  title: const Text('Identité'),
                   children: [
-                    ListTile(title: Text('Nom d\'utilisateur / Appareil')),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _empNameController,
+                            decoration: const InputDecoration(labelText: 'Nom employé'),
+                          ),
+                          TextField(
+                            controller: _empAddressController,
+                            decoration: const InputDecoration(labelText: 'Adresse employé'),
+                          ),
+                          TextField(
+                            controller: _employerNameController,
+                            decoration: const InputDecoration(labelText: 'Nom employeur'),
+                          ),
+                          TextField(
+                            controller: _employerAddressController,
+                            decoration: const InputDecoration(labelText: 'Adresse employeur'),
+                          ),
+                          TextField(
+                            controller: _cityPdfController,
+                            decoration: const InputDecoration(labelText: 'Ville (PDF)'),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-                const ExpansionTile(
-                  leading: Icon(Icons.tune),
-                  title: Text('Mode de badgeage'),
+                ExpansionTile(
+                  leading: const Icon(Icons.tune),
+                  title: const Text('Mode de badgeage'),
                   children: [
-                    ListTile(title: Text('Mode automatique / Manuel')),
+                    RadioListTile<String>(
+                      title: const Text('Bureau / Multi-lieux'),
+                      value: 'OFFICE',
+                      groupValue: _settings.badgeMode,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _settings = SettingsEntity(
+                              enterDistance: _settings.enterDistance,
+                              enterDelaySec: _settings.enterDelaySec,
+                              exitDelaySec: _settings.exitDelaySec,
+                              employeeName: _empNameController.text,
+                              employeeAddress: _empAddressController.text,
+                              employerName: _employerNameController.text,
+                              employerAddress: _employerAddressController.text,
+                              cityPdf: _cityPdfController.text,
+                              badgeMode: val,
+                              lunchBreakEnabled: _settings.lunchBreakEnabled,
+                              lunchStartHour: _settings.lunchStartHour,
+                              lunchStartMin: _settings.lunchStartMin,
+                              lunchEndHour: _settings.lunchEndHour,
+                              lunchEndMin: _settings.lunchEndMin,
+                              lunchDurationMin: _settings.lunchDurationMin,
+                            );
+                          });
+                        }
+                      },
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('Dépôt / Entrepôt'),
+                      value: 'DEPOT',
+                      groupValue: _settings.badgeMode,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _settings = SettingsEntity(
+                              enterDistance: _settings.enterDistance,
+                              enterDelaySec: _settings.enterDelaySec,
+                              exitDelaySec: _settings.exitDelaySec,
+                              employeeName: _empNameController.text,
+                              employeeAddress: _empAddressController.text,
+                              employerName: _employerNameController.text,
+                              employerAddress: _employerAddressController.text,
+                              cityPdf: _cityPdfController.text,
+                              badgeMode: val,
+                              lunchBreakEnabled: _settings.lunchBreakEnabled,
+                              lunchStartHour: _settings.lunchStartHour,
+                              lunchStartMin: _settings.lunchStartMin,
+                              lunchEndHour: _settings.lunchEndHour,
+                              lunchEndMin: _settings.lunchEndMin,
+                              lunchDurationMin: _settings.lunchDurationMin,
+                            );
+                          });
+                        }
+                      },
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('Départ domicile'),
+                      value: 'HOME_TRAVEL',
+                      groupValue: _settings.badgeMode,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _settings = SettingsEntity(
+                              enterDistance: _settings.enterDistance,
+                              enterDelaySec: _settings.enterDelaySec,
+                              exitDelaySec: _settings.exitDelaySec,
+                              employeeName: _empNameController.text,
+                              employeeAddress: _empAddressController.text,
+                              employerName: _employerNameController.text,
+                              employerAddress: _employerAddressController.text,
+                              cityPdf: _cityPdfController.text,
+                              badgeMode: val,
+                              lunchBreakEnabled: _settings.lunchBreakEnabled,
+                              lunchStartHour: _settings.lunchStartHour,
+                              lunchStartMin: _settings.lunchStartMin,
+                              lunchEndHour: _settings.lunchEndHour,
+                              lunchEndMin: _settings.lunchEndMin,
+                              lunchDurationMin: _settings.lunchDurationMin,
+                            );
+                          });
+                        }
+                      },
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('Manuel uniquement'),
+                      value: 'MANUAL',
+                      groupValue: _settings.badgeMode,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _settings = SettingsEntity(
+                              enterDistance: _settings.enterDistance,
+                              enterDelaySec: _settings.enterDelaySec,
+                              exitDelaySec: _settings.exitDelaySec,
+                              employeeName: _empNameController.text,
+                              employeeAddress: _empAddressController.text,
+                              employerName: _employerNameController.text,
+                              employerAddress: _employerAddressController.text,
+                              cityPdf: _cityPdfController.text,
+                              badgeMode: val,
+                              lunchBreakEnabled: _settings.lunchBreakEnabled,
+                              lunchStartHour: _settings.lunchStartHour,
+                              lunchStartMin: _settings.lunchStartMin,
+                              lunchEndHour: _settings.lunchEndHour,
+                              lunchEndMin: _settings.lunchEndMin,
+                              lunchDurationMin: _settings.lunchDurationMin,
+                            );
+                          });
+                        }
+                      },
+                    ),
                   ],
                 ),
                 ExpansionTile(
@@ -392,16 +618,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Rayon de détection: ${_enterDistance.toInt()}m'),
+                          Text('Rayon de détection: ${_settings.enterDistance.toInt()}m'),
                           Slider(
-                            value: _enterDistance,
+                            value: _settings.enterDistance,
                             min: 50,
                             max: 2000,
                             divisions: 39,
-                            label: '${_enterDistance.toInt()}m',
+                            label: '${_settings.enterDistance.toInt()}m',
                             onChanged: (val) {
                               setState(() {
-                                _enterDistance = val;
+                                _settings = SettingsEntity(
+                                  enterDistance: val,
+                                  enterDelaySec: _settings.enterDelaySec,
+                                  exitDelaySec: _settings.exitDelaySec,
+                                  employeeName: _empNameController.text,
+                                  employeeAddress: _empAddressController.text,
+                                  employerName: _employerNameController.text,
+                                  employerAddress: _employerAddressController.text,
+                                  cityPdf: _cityPdfController.text,
+                                  badgeMode: _settings.badgeMode,
+                                  lunchBreakEnabled: _settings.lunchBreakEnabled,
+                                  lunchStartHour: _settings.lunchStartHour,
+                                  lunchStartMin: _settings.lunchStartMin,
+                                  lunchEndHour: _settings.lunchEndHour,
+                                  lunchEndMin: _settings.lunchEndMin,
+                                  lunchDurationMin: _settings.lunchDurationMin,
+                                );
                               });
                             },
                           ),
@@ -419,28 +661,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Délai d\'entrée: $_enterDelaySec s'),
+                          Text('Délai d\'entrée: ${_settings.enterDelaySec} s'),
                           Slider(
-                            value: _enterDelaySec.toDouble(),
+                            value: _settings.enterDelaySec.toDouble(),
                             min: 0,
                             max: 300,
                             divisions: 30,
                             onChanged: (val) {
                               setState(() {
-                                _enterDelaySec = val.toInt();
+                                _settings = SettingsEntity(
+                                  enterDistance: _settings.enterDistance,
+                                  enterDelaySec: val.toInt(),
+                                  exitDelaySec: _settings.exitDelaySec,
+                                  employeeName: _empNameController.text,
+                                  employeeAddress: _empAddressController.text,
+                                  employerName: _employerNameController.text,
+                                  employerAddress: _employerAddressController.text,
+                                  cityPdf: _cityPdfController.text,
+                                  badgeMode: _settings.badgeMode,
+                                  lunchBreakEnabled: _settings.lunchBreakEnabled,
+                                  lunchStartHour: _settings.lunchStartHour,
+                                  lunchStartMin: _settings.lunchStartMin,
+                                  lunchEndHour: _settings.lunchEndHour,
+                                  lunchEndMin: _settings.lunchEndMin,
+                                  lunchDurationMin: _settings.lunchDurationMin,
+                                );
                               });
                             },
                           ),
                           const SizedBox(height: 10),
-                          Text('Délai de sortie: $_exitDelaySec s'),
+                          Text('Délai de sortie: ${_settings.exitDelaySec} s'),
                           Slider(
-                            value: _exitDelaySec.toDouble(),
+                            value: _settings.exitDelaySec.toDouble(),
                             min: 0,
                             max: 300,
                             divisions: 30,
                             onChanged: (val) {
                               setState(() {
-                                _exitDelaySec = val.toInt();
+                                _settings = SettingsEntity(
+                                  enterDistance: _settings.enterDistance,
+                                  enterDelaySec: _settings.enterDelaySec,
+                                  exitDelaySec: val.toInt(),
+                                  employeeName: _empNameController.text,
+                                  employeeAddress: _empAddressController.text,
+                                  employerName: _employerNameController.text,
+                                  employerAddress: _employerAddressController.text,
+                                  cityPdf: _cityPdfController.text,
+                                  badgeMode: _settings.badgeMode,
+                                  lunchBreakEnabled: _settings.lunchBreakEnabled,
+                                  lunchStartHour: _settings.lunchStartHour,
+                                  lunchStartMin: _settings.lunchStartMin,
+                                  lunchEndHour: _settings.lunchEndHour,
+                                  lunchEndMin: _settings.lunchEndMin,
+                                  lunchDurationMin: _settings.lunchDurationMin,
+                                );
                               });
                             },
                           ),
@@ -449,11 +723,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
-                const ExpansionTile(
-                  leading: Icon(Icons.restaurant),
-                  title: Text('Pause déjeuner'),
+                ExpansionTile(
+                  leading: const Icon(Icons.restaurant),
+                  title: const Text('Pause déjeuner'),
                   children: [
-                    ListTile(title: Text('Gestion automatique de la pause')),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          SwitchListTile(
+                            title: const Text('Activer la pause'),
+                            value: _settings.lunchBreakEnabled,
+                            onChanged: (val) {
+                              setState(() {
+                                _settings = SettingsEntity(
+                                  enterDistance: _settings.enterDistance,
+                                  enterDelaySec: _settings.enterDelaySec,
+                                  exitDelaySec: _settings.exitDelaySec,
+                                  employeeName: _empNameController.text,
+                                  employeeAddress: _empAddressController.text,
+                                  employerName: _employerNameController.text,
+                                  employerAddress: _employerAddressController.text,
+                                  cityPdf: _cityPdfController.text,
+                                  badgeMode: _settings.badgeMode,
+                                  lunchBreakEnabled: val,
+                                  lunchStartHour: _settings.lunchStartHour,
+                                  lunchStartMin: _settings.lunchStartMin,
+                                  lunchEndHour: _settings.lunchEndHour,
+                                  lunchEndMin: _settings.lunchEndMin,
+                                  lunchDurationMin: _settings.lunchDurationMin,
+                                );
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
                 const ExpansionTile(
