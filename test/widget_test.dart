@@ -14,6 +14,6 @@ void main() {
     await tester.pumpWidget(const BadgeuseApp());
 
     // Verify that the title is present.
-    expect(find.text('Badgeuse Auto (Android & iOS)'), findsOneWidget);
+    expect(find.text('Badgeuse Auto'), findsOneWidget);
   });
 }
