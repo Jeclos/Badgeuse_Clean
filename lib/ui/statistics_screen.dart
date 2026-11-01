@@ -19,6 +19,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   String _selectedPeriod = 'Cette semaine';
   String _selectedLocation = 'Tous les lieux';
+  DateTime? _startDate;
+  DateTime? _endDate;
 
   final List<String> _periods = [
     'Cette semaine',
@@ -52,11 +54,27 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       }
       final date = DateTime.fromMillisecondsSinceEpoch(p.timestamp);
       final now = DateTime.now();
+
       if (_selectedPeriod == 'Cette semaine') {
         final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
         return date.isAfter(DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day));
+      } else if (_selectedPeriod == 'Semaine précédente') {
+        final startOfLastWeek = now.subtract(Duration(days: now.weekday + 6));
+        final endOfLastWeek = now.subtract(Duration(days: now.weekday));
+        return date.isAfter(startOfLastWeek) && date.isBefore(endOfLastWeek);
       } else if (_selectedPeriod == 'Ce mois') {
         return date.year == now.year && date.month == now.month;
+      } else if (_selectedPeriod == 'Mois précédent') {
+        final prevMonth = DateTime(now.year, now.month - 1, 1);
+        return date.year == prevMonth.year && date.month == prevMonth.month;
+      } else if (_selectedPeriod == 'Personnalisé') {
+        if (_startDate != null && date.isBefore(DateTime(_startDate!.year, _startDate!.month, _startDate!.day))) {
+          return false;
+        }
+        if (_endDate != null && date.isAfter(DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59))) {
+          return false;
+        }
+        return true;
       }
       return true;
     }).toList();
@@ -178,6 +196,42 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                               }
                             },
                           ),
+                          if (_selectedPeriod == 'Personnalisé') ...[
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () async {
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: _startDate ?? DateTime.now(),
+                                        firstDate: DateTime(2020),
+                                        lastDate: DateTime(2035),
+                                      );
+                                      if (picked != null) setState(() => _startDate = picked);
+                                    },
+                                    child: Text(_startDate == null ? 'Date de début' : '${_startDate!.day}/${_startDate!.month}/${_startDate!.year}'),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () async {
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: _endDate ?? DateTime.now(),
+                                        firstDate: DateTime(2020),
+                                        lastDate: DateTime(2035),
+                                      );
+                                      if (picked != null) setState(() => _endDate = picked);
+                                    },
+                                    child: Text(_endDate == null ? 'Date de fin' : '${_endDate!.day}/${_endDate!.month}/${_endDate!.year}'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
