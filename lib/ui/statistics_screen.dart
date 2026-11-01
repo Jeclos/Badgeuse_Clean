@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/database_helper.dart';
 import '../data/models.dart';
 import '../export/pdf_export.dart';
+import '../export/csv_export.dart';
 import '../domain/calculators.dart';
 
 class StatisticsScreen extends StatefulWidget {
@@ -30,6 +31,28 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     });
   }
 
+  void _exportCsv() {
+    final csv = CsvExport.generateCsv(_presences);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Export CSV'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Text(csv),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final totalWorkedMillis = WorkTimeCalculator.calculateWorkedTime(_presences);
@@ -45,6 +68,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             onPressed: _presences.isEmpty
                 ? null
                 : () => PdfExport.generateAndPrintPdf(_presences),
+          ),
+          IconButton(
+            icon: const Icon(Icons.table_chart),
+            tooltip: 'Exporter en CSV',
+            onPressed: _presences.isEmpty ? null : _exportCsv,
           ),
         ],
       ),
@@ -102,12 +130,26 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     ],
                   ),
                   const SizedBox(height: 15),
-                  ElevatedButton.icon(
-                    onPressed: _presences.isEmpty
-                        ? null
-                        : () => PdfExport.generateAndPrintPdf(_presences),
-                    icon: const Icon(Icons.picture_as_pdf),
-                    label: const Text('Générer le rapport PDF complet'),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _presences.isEmpty
+                              ? null
+                              : () => PdfExport.generateAndPrintPdf(_presences),
+                          icon: const Icon(Icons.picture_as_pdf),
+                          label: const Text('Rapport PDF'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _presences.isEmpty ? null : _exportCsv,
+                          icon: const Icon(Icons.table_chart),
+                          label: const Text('Export CSV'),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
                   const Text(
