@@ -4,6 +4,7 @@ import '../data/models.dart';
 import '../export/pdf_export.dart';
 import '../export/csv_export.dart';
 import '../domain/calculators.dart';
+import 'package:printing/printing.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -100,6 +101,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _exportPdf() async {
+    final settings = await DatabaseHelper.instance.getSettings();
+    await PdfExport.generateAndPrintPdf(_filteredPresences, settings: settings);
   }
 
   @override
@@ -237,8 +243,31 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text('Détail journalier', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const Text('Détail des pointages', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
+                  filtered.isEmpty
+                      ? const Center(child: Padding(padding: EdgeInsets.all(16.0), child: Text('Aucun pointage pour cette période')))
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            final item = filtered[index];
+                            final date = DateTime.fromMillisecondsSinceEpoch(item.timestamp);
+                            return Card(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              child: ListTile(
+                                leading: Icon(
+                                  item.type == 'ENTRÉE' ? Icons.arrow_downward : Icons.arrow_upward,
+                                  color: item.type == 'ENTRÉE' ? Colors.green : Colors.red,
+                                ),
+                                title: Text('${item.type} (${item.locationName})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                subtitle: Text('${date.day}/${date.month}/${date.year} à ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}'),
+                              ),
+                            );
+                          },
+                        ),
+                  const SizedBox(height: 20),
                   ElevatedButton.icon(
                     onPressed: filtered.isEmpty ? null : _exportCsv,
                     icon: const Icon(Icons.download),
@@ -247,10 +276,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   ),
                   const SizedBox(height: 10),
                   ElevatedButton.icon(
-                    onPressed: filtered.isEmpty ? null : () => PdfExport.generateAndPrintPdf(filtered),
+                    onPressed: filtered.isEmpty ? null : _exportPdf,
                     icon: const Icon(Icons.picture_as_pdf),
-                    label: const Text('Exporter en PDF'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade200, foregroundColor: Colors.black54),
+                    label: const Text('Exporter / Partager PDF'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade100, foregroundColor: Colors.blue.shade900),
                   ),
                 ],
               ),

@@ -1,8 +1,8 @@
 import '../data/models.dart';
 
 class WorkTimeCalculator {
-  /// Calcule le temps de travail total en millisecondes à partir d'une liste de pointages (Entrée/Sortie) pour une journée.
-  static int calculateWorkedTime(List<PresenceEntity> presences) {
+  /// Calcule le temps de travail total en millisecondes à partir d'une liste de pointages (Entrée/Sortie).
+  static int calculateWorkedTime(List<PresenceEntity> presences, {SettingsEntity? settings}) {
     // Trier par timestamp croissant
     final sorted = List<PresenceEntity>.from(presences)
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
@@ -19,7 +19,7 @@ class WorkTimeCalculator {
       }
     }
 
-    // Si toujours en cours (entrée sans sortie et fin de journée en cours)
+    // Si toujours en cours (entrée sans sortie)
     if (lastEnterTime != null) {
       final now = DateTime.now().millisecondsSinceEpoch;
       if (now > lastEnterTime) {
@@ -27,7 +27,17 @@ class WorkTimeCalculator {
       }
     }
 
-    return totalMillis;
+    // Déduction de la pause déjeuner si activée
+    if (settings != null && settings.lunchBreakEnabled && totalMillis > 0) {
+      final lunchMillis = settings.lunchDurationMin * 60 * 1000;
+      // Appliquer la déduction si la durée dépasse la pause
+      if (totalMillis > lunchMillis) {
+        // Simple déduction ou logique de plage
+        totalMillis -= lunchMillis;
+      }
+    }
+
+    return totalMillis < 0 ? 0 : totalMillis;
   }
 
   static String formatDuration(int millis) {

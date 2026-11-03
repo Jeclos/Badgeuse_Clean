@@ -86,6 +86,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   List<PresenceEntity> _presences = [];
+  List<WorkLocationEntity> _workLocations = [];
   bool _isLoading = true;
 
   @override
@@ -96,9 +97,11 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadData() async {
     final presences = await DatabaseHelper.instance.getAllPresences();
+    final locations = await DatabaseHelper.instance.getAllWorkLocations();
     if (!mounted) return;
     setState(() {
       _presences = presences;
+      _workLocations = locations;
       _isLoading = false;
     });
   }
@@ -118,6 +121,52 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Future<void> _handleEntryPressed() async {
+    final locations = await DatabaseHelper.instance.getAllWorkLocations();
+    final activeLocations = locations.where((l) => l.isActive).toList();
+    if (!mounted) return;
+    if (activeLocations.isEmpty) {
+      await _badgeManual('ENTRÉE', 'Bureau Principal');
+    } else if (activeLocations.length == 1) {
+      await _badgeManual('ENTRÉE', activeLocations.first.name);
+    } else {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Choisir le lieu d\'entrée'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: activeLocations.map((loc) => ListTile(
+              title: Text(loc.name),
+              onTap: () {
+                Navigator.pop(context);
+                _badgeManual('ENTRÉE', loc.name);
+              },
+            )).toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleExitPressed() async {
+    final locations = await DatabaseHelper.instance.getAllWorkLocations();
+    final activeLocations = locations.where((l) => l.isActive).toList();
+    String locationName = 'Bureau Principal';
+    if (_presences.isNotEmpty) {
+      locationName = _presences.first.locationName;
+    } else if (activeLocations.isNotEmpty) {
+      locationName = activeLocations.first.name;
+    }
+    await _badgeManual('SORTIE', locationName);
+  }
+
   Future<void> _deletePresence(int id) async {
     final db = await DatabaseHelper.instance.database;
     await db.delete('presence', where: 'id = ?', whereArgs: [id]);
@@ -127,7 +176,10 @@ class _MainScreenState extends State<MainScreen> {
   void _showEditPresenceDialog(PresenceEntity presence) {
     DateTime selectedDate = DateTime.fromMillisecondsSinceEpoch(presence.timestamp);
     TimeOfDay selectedTime = TimeOfDay.fromDateTime(selectedDate);
-    final locationController = TextEditingController(text: presence.locationName);
+    String selectedLocation = presence.locationName;
+    if (_workLocations.isNotEmpty && !_workLocations.any((l) => l.name == selectedLocation)) {
+      selectedLocation = _workLocations.first.name;
+    }
     String selectedType = presence.type;
 
     showDialog(
@@ -157,9 +209,20 @@ class _MainScreenState extends State<MainScreen> {
                   },
                 ),
                 const SizedBox(height: 10),
-                TextField(
-                  controller: locationController,
+                DropdownButtonFormField<String>(
+                  initialValue: _workLocations.any((l) => l.name == selectedLocation) ? selectedLocation : (_workLocations.isNotEmpty ? _workLocations.first.name : null),
                   decoration: const InputDecoration(labelText: 'Lieu'),
+                  items: _workLocations.map((loc) => DropdownMenuItem(
+                    value: loc.name,
+                    child: Text(loc.name),
+                  )).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setDialogState(() {
+                        selectedLocation = val;
+                      });
+                    }
+                  },
                 ),
                 const SizedBox(height: 15),
                 const Text('Date', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
@@ -227,7 +290,7 @@ class _MainScreenState extends State<MainScreen> {
                   {
                     'timestamp': selectedDate.millisecondsSinceEpoch,
                     'type': selectedType,
-                    'locationName': locationController.text.trim(),
+                    'locationName': selectedLocation,
                   },
                   where: 'id = ?',
                   whereArgs: [presence.id],
@@ -256,11 +319,21 @@ class _MainScreenState extends State<MainScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.bar_chart),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const StatisticsScreen()),
+              );
+            },
           ),
         ],
       ),
@@ -303,7 +376,7 @@ class _MainScreenState extends State<MainScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
                               ElevatedButton.icon(
-                                onPressed: () => _badgeManual('ENTRÉE', 'Bureau Principal'),
+                                onPressed: _handleEntryPressed,
                                 icon: const Icon(Icons.login),
                                 label: const Text('Entrée'),
                                 style: ElevatedButton.styleFrom(
@@ -311,7 +384,7 @@ class _MainScreenState extends State<MainScreen> {
                                 ),
                               ),
                               ElevatedButton.icon(
-                                onPressed: () => _badgeManual('SORTIE', 'Bureau Principal'),
+                                onPressed: _handleExitPressed,
                                 icon: const Icon(Icons.logout),
                                 label: const Text('Sortie'),
                                 style: ElevatedButton.styleFrom(
@@ -821,6 +894,154 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               });
                             },
                           ),
+                          if (_settings.lunchBreakEnabled) ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: TextEditingController(text: _settings.lunchStartHour.toString()),
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'Début heure'),
+                                    onChanged: (val) {
+                                      final h = int.tryParse(val) ?? _settings.lunchStartHour;
+                                      _settings = SettingsEntity(
+                                        enterDistance: _settings.enterDistance,
+                                        enterDelaySec: _settings.enterDelaySec,
+                                        exitDelaySec: _settings.exitDelaySec,
+                                        employeeName: _empNameController.text,
+                                        employeeAddress: _empAddressController.text,
+                                        employerName: _employerNameController.text,
+                                        employerAddress: _employerAddressController.text,
+                                        cityPdf: _cityPdfController.text,
+                                        badgeMode: _settings.badgeMode,
+                                        lunchBreakEnabled: _settings.lunchBreakEnabled,
+                                        lunchStartHour: h,
+                                        lunchStartMin: _settings.lunchStartMin,
+                                        lunchEndHour: _settings.lunchEndHour,
+                                        lunchEndMin: _settings.lunchEndMin,
+                                        lunchDurationMin: _settings.lunchDurationMin,
+                                      );
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextField(
+                                    controller: TextEditingController(text: _settings.lunchStartMin.toString()),
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'Début minute'),
+                                    onChanged: (val) {
+                                      final m = int.tryParse(val) ?? _settings.lunchStartMin;
+                                      _settings = SettingsEntity(
+                                        enterDistance: _settings.enterDistance,
+                                        enterDelaySec: _settings.enterDelaySec,
+                                        exitDelaySec: _settings.exitDelaySec,
+                                        employeeName: _empNameController.text,
+                                        employeeAddress: _empAddressController.text,
+                                        employerName: _employerNameController.text,
+                                        employerAddress: _employerAddressController.text,
+                                        cityPdf: _cityPdfController.text,
+                                        badgeMode: _settings.badgeMode,
+                                        lunchBreakEnabled: _settings.lunchBreakEnabled,
+                                        lunchStartHour: _settings.lunchStartHour,
+                                        lunchStartMin: m,
+                                        lunchEndHour: _settings.lunchEndHour,
+                                        lunchEndMin: _settings.lunchEndMin,
+                                        lunchDurationMin: _settings.lunchDurationMin,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: TextEditingController(text: _settings.lunchEndHour.toString()),
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'Fin heure'),
+                                    onChanged: (val) {
+                                      final h = int.tryParse(val) ?? _settings.lunchEndHour;
+                                      _settings = SettingsEntity(
+                                        enterDistance: _settings.enterDistance,
+                                        enterDelaySec: _settings.enterDelaySec,
+                                        exitDelaySec: _settings.exitDelaySec,
+                                        employeeName: _empNameController.text,
+                                        employeeAddress: _empAddressController.text,
+                                        employerName: _employerNameController.text,
+                                        employerAddress: _employerAddressController.text,
+                                        cityPdf: _cityPdfController.text,
+                                        badgeMode: _settings.badgeMode,
+                                        lunchBreakEnabled: _settings.lunchBreakEnabled,
+                                        lunchStartHour: _settings.lunchStartHour,
+                                        lunchStartMin: _settings.lunchStartMin,
+                                        lunchEndHour: h,
+                                        lunchEndMin: _settings.lunchEndMin,
+                                        lunchDurationMin: _settings.lunchDurationMin,
+                                      );
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextField(
+                                    controller: TextEditingController(text: _settings.lunchEndMin.toString()),
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'Fin minute'),
+                                    onChanged: (val) {
+                                      final m = int.tryParse(val) ?? _settings.lunchEndMin;
+                                      _settings = SettingsEntity(
+                                        enterDistance: _settings.enterDistance,
+                                        enterDelaySec: _settings.enterDelaySec,
+                                        exitDelaySec: _settings.exitDelaySec,
+                                        employeeName: _empNameController.text,
+                                        employeeAddress: _empAddressController.text,
+                                        employerName: _employerNameController.text,
+                                        employerAddress: _employerAddressController.text,
+                                        cityPdf: _cityPdfController.text,
+                                        badgeMode: _settings.badgeMode,
+                                        lunchBreakEnabled: _settings.lunchBreakEnabled,
+                                        lunchStartHour: _settings.lunchStartHour,
+                                        lunchStartMin: _settings.lunchStartMin,
+                                        lunchEndHour: _settings.lunchEndHour,
+                                        lunchEndMin: m,
+                                        lunchDurationMin: _settings.lunchDurationMin,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: TextEditingController(text: _settings.lunchDurationMin.toString()),
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(labelText: 'Durée par défaut (minutes)'),
+                              onChanged: (val) {
+                                final d = int.tryParse(val) ?? _settings.lunchDurationMin;
+                                _settings = SettingsEntity(
+                                  enterDistance: _settings.enterDistance,
+                                  enterDelaySec: _settings.enterDelaySec,
+                                  exitDelaySec: _settings.exitDelaySec,
+                                  employeeName: _empNameController.text,
+                                  employeeAddress: _empAddressController.text,
+                                  employerName: _employerNameController.text,
+                                  employerAddress: _employerAddressController.text,
+                                  cityPdf: _cityPdfController.text,
+                                  badgeMode: _settings.badgeMode,
+                                  lunchBreakEnabled: _settings.lunchBreakEnabled,
+                                  lunchStartHour: _settings.lunchStartHour,
+                                  lunchStartMin: _settings.lunchStartMin,
+                                  lunchEndHour: _settings.lunchEndHour,
+                                  lunchEndMin: _settings.lunchEndMin,
+                                  lunchDurationMin: d,
+                                );
+                              },
+                            ),
+                          ],
                         ],
                       ),
                     ),
