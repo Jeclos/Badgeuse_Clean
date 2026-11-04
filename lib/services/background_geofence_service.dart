@@ -5,6 +5,12 @@ import '../data/models.dart';
 import 'location_service.dart';
 
 class BackgroundGeofenceService {
+  static int? _pendingEnterTimestamp;
+  static String? _pendingEnterLocation;
+
+  static int? _pendingExitTimestamp;
+  static String? _pendingExitLocation;
+
   static Future<void> initializeService() async {
     final service = FlutterBackgroundService();
 
@@ -15,7 +21,7 @@ class BackgroundGeofenceService {
         isForegroundMode: true,
         notificationChannelId: 'badgeuse_auto_geofence',
         initialNotificationTitle: 'Badgeuse Auto',
-        initialNotificationContent: 'Surveillance GPS en arrière-plan active',
+        initialNotificationContent: 'Surveillance GPS et géofencing actifs',
         foregroundServiceNotificationId: 888,
       ),
       iosConfiguration: IosConfiguration(
@@ -30,7 +36,7 @@ class BackgroundGeofenceService {
 
   @pragma('vm:entry-point')
   static void onStart(ServiceInstance service) async {
-    Timer.periodic(const Duration(seconds: 60), (timer) async {
+    Timer.periodic(const Duration(seconds: 30), (timer) async {
       try {
         final settings = await DatabaseHelper.instance.getSettings();
         if (settings.badgeMode == 'MANUAL') return;
@@ -46,6 +52,8 @@ class BackgroundGeofenceService {
         final isWorking = presences.isNotEmpty && presences.first.type == 'ENTRÉE';
         final currentLocationName = isWorking ? presences.first.locationName : null;
 
+        final now = DateTime.now().millisecondsSinceEpoch;
+
         for (var loc in activeLocations) {
           final distance = LocationService.instance.calculateDistance(
             position.latitude,
@@ -55,32 +63,61 @@ class BackgroundGeofenceService {
           );
 
           final radius = settings.enterDistance > 0 ? settings.enterDistance : 300.0;
+          final enterDelayMs = settings.enterDelaySec * 1000;
+          final exitDelayMs = settings.exitDelaySec * 1000;
 
           if (distance <= radius) {
-            // Entered location
+            // Inside location radius
+            _pendingExitTimestamp = null;
+            _pendingExitLocation = null;
+
             if (!isWorking) {
-              await DatabaseHelper.instance.insertPresence(
-                PresenceEntity(
-                  timestamp: DateTime.now().millisecondsSinceEpoch,
-                  type: 'ENTRÉE',
-                  locationName: loc.name,
-                ),
-              );
-              break;
+              if (_pendingEnterLocation == loc.name) {
+                if (_pendingEnterTimestamp != null &&
+                    now - _pendingEnterTimestamp! >= enterDelayMs) {
+                  // Confirm Entry after delay
+                  await DatabaseHelper.instance.insertPresence(
+                    PresenceEntity(
+                      timestamp: now,
+                      type: 'ENTRÉE',
+                      locationName: loc.name,
+                    ),
+                  );
+                  _pendingEnterTimestamp = null;
+                  _pendingEnterLocation = null;
+                  break;
+                }
+              } else {
+                _pendingEnterTimestamp = now;
+                _pendingEnterLocation = loc.name;
+              }
             }
           } else {
-            // Exited location
+            // Outside location radius
+            _pendingEnterTimestamp = null;
+            _pendingEnterLocation = null;
+
             if (isWorking && currentLocationName == loc.name) {
-              // Check if far enough to trigger exit (e.g. radius + 50m)
-              if (distance > radius + 50) {
-                await DatabaseHelper.instance.insertPresence(
-                  PresenceEntity(
-                    timestamp: DateTime.now().millisecondsSinceEpoch,
-                    type: 'SORTIE',
-                    locationName: loc.name,
-                  ),
-                );
-                break;
+              if (distance > radius + 30) {
+                if (_pendingExitLocation == loc.name) {
+                  if (_pendingExitTimestamp != null &&
+                      now - _pendingExitTimestamp! >= exitDelayMs) {
+                    // Confirm Exit after delay & verification
+                    await DatabaseHelper.instance.insertPresence(
+                      PresenceEntity(
+                        timestamp: now,
+                        type: 'SORTIE',
+                        locationName: loc.name,
+                      ),
+                    );
+                    _pendingExitTimestamp = null;
+                    _pendingExitLocation = null;
+                    break;
+                  }
+                } else {
+                  _pendingExitTimestamp = now;
+                  _pendingExitLocation = loc.name;
+                }
               }
             }
           }
