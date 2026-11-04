@@ -6,10 +6,12 @@ import 'ui/statistics_screen.dart';
 import 'domain/calculators.dart';
 import 'services/background_geofence_service.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await BackgroundGeofenceService.initializeService();
   runApp(const BadgeuseApp());
+  Future.delayed(const Duration(seconds: 2), () {
+    BackgroundGeofenceService.initializeService();
+  });
 }
 
 class BadgeuseApp extends StatelessWidget {
