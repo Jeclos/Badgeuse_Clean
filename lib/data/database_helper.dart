@@ -20,7 +20,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -32,7 +32,13 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timestamp INTEGER NOT NULL,
         type TEXT NOT NULL,
-        locationName TEXT NOT NULL
+        locationName TEXT NOT NULL,
+        workLocationId INTEGER,
+        enterTime INTEGER,
+        exitTime INTEGER,
+        enterType TEXT,
+        exitType TEXT,
+        locked INTEGER DEFAULT 0
       )
     ''');
 
@@ -52,20 +58,36 @@ class DatabaseHelper {
       CREATE TABLE settings (
         id INTEGER PRIMARY KEY,
         enterDistance REAL NOT NULL,
+        exitDistance REAL NOT NULL,
         enterDelaySec INTEGER NOT NULL,
         exitDelaySec INTEGER NOT NULL,
+        dailyWorkHours INTEGER NOT NULL,
         employeeName TEXT,
         employeeAddress TEXT,
         employerName TEXT,
         employerAddress TEXT,
         cityPdf TEXT,
         badgeMode TEXT,
+        homeLatitude REAL,
+        homeLongitude REAL,
+        travelTimeMin INTEGER,
+        depotStartHour INTEGER,
+        depotStartMinute INTEGER,
+        depotEndHour INTEGER,
+        depotEndMinute INTEGER,
+        depotDailyAdjustMin INTEGER,
         lunchBreakEnabled INTEGER,
         lunchStartHour INTEGER,
         lunchStartMin INTEGER,
         lunchEndHour INTEGER,
         lunchEndMin INTEGER,
-        lunchDurationMin INTEGER
+        lunchDurationMin INTEGER,
+        lunchWindowStartHour INTEGER,
+        lunchWindowStartMinute INTEGER,
+        lunchWindowEndHour INTEGER,
+        lunchWindowEndMinute INTEGER,
+        lunchMinDurationMin INTEGER,
+        lunchDefaultDurationMin INTEGER
       )
     ''');
 
@@ -73,65 +95,44 @@ class DatabaseHelper {
     await db.insert('settings', {
       'id': 1,
       'enterDistance': 300.0,
+      'exitDistance': 150.0,
       'enterDelaySec': 60,
       'exitDelaySec': 60,
+      'dailyWorkHours': 7,
       'employeeName': '',
       'employeeAddress': '',
       'employerName': '',
       'employerAddress': '',
       'cityPdf': '',
       'badgeMode': 'OFFICE',
-      'lunchBreakEnabled': 1,
+      'homeLatitude': 0.0,
+      'homeLongitude': 0.0,
+      'travelTimeMin': 0,
+      'depotStartHour': 7,
+      'depotStartMinute': 0,
+      'depotEndHour': 17,
+      'depotEndMinute': 0,
+      'depotDailyAdjustMin': 0,
+      'lunchBreakEnabled': 0,
       'lunchStartHour': 12,
       'lunchStartMin': 0,
       'lunchEndHour': 14,
       'lunchEndMin': 0,
-      'lunchDurationMin': 90,
+      'lunchDurationMin': 45,
+      'lunchWindowStartHour': 12,
+      'lunchWindowStartMinute': 0,
+      'lunchWindowEndHour': 14,
+      'lunchWindowEndMinute': 0,
+      'lunchMinDurationMin': 45,
+      'lunchDefaultDurationMin': 45,
     });
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      // Recreate settings table or add columns if needed
+    if (oldVersion < 3) {
       await db.execute('DROP TABLE IF EXISTS settings');
-      await db.execute('''
-        CREATE TABLE settings (
-          id INTEGER PRIMARY KEY,
-          enterDistance REAL NOT NULL,
-          enterDelaySec INTEGER NOT NULL,
-          exitDelaySec INTEGER NOT NULL,
-          employeeName TEXT,
-          employeeAddress TEXT,
-          employerName TEXT,
-          employerAddress TEXT,
-          cityPdf TEXT,
-          badgeMode TEXT,
-          lunchBreakEnabled INTEGER,
-          lunchStartHour INTEGER,
-          lunchStartMin INTEGER,
-          lunchEndHour INTEGER,
-          lunchEndMin INTEGER,
-          lunchDurationMin INTEGER
-        )
-      ''');
-      await db.insert('settings', {
-        'id': 1,
-        'enterDistance': 300.0,
-        'enterDelaySec': 60,
-        'exitDelaySec': 60,
-        'employeeName': '',
-        'employeeAddress': '',
-        'employerName': '',
-        'employerAddress': '',
-        'cityPdf': '',
-        'badgeMode': 'OFFICE',
-        'lunchBreakEnabled': 1,
-        'lunchStartHour': 12,
-        'lunchStartMin': 0,
-        'lunchEndHour': 14,
-        'lunchEndMin': 0,
-        'lunchDurationMin': 90,
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await db.execute('DROP TABLE IF EXISTS presence');
+      await _createDB(db, newVersion);
     }
   }
 
