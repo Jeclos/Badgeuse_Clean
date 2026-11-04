@@ -4,7 +4,6 @@ import '../data/models.dart';
 import '../export/pdf_export.dart';
 import '../export/csv_export.dart';
 import '../domain/calculators.dart';
-import 'package:printing/printing.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});

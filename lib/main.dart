@@ -4,9 +4,11 @@ import 'data/models.dart';
 import 'ui/locations_screen.dart';
 import 'ui/statistics_screen.dart';
 import 'domain/calculators.dart';
+import 'services/background_geofence_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await BackgroundGeofenceService.initializeService();
   runApp(const BadgeuseApp());
 }
 
