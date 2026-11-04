@@ -28,7 +28,7 @@ class DatabaseHelper {
 
   Future _createDB(Database db, int version) async {
     await db.execute('''
-      CREATE TABLE presence (
+      CREATE TABLE IF NOT EXISTS presence (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timestamp INTEGER NOT NULL,
         type TEXT NOT NULL,
@@ -43,7 +43,7 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE work_locations (
+      CREATE TABLE IF NOT EXISTS work_locations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         latitude REAL NOT NULL,
@@ -55,7 +55,7 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE settings (
+      CREATE TABLE IF NOT EXISTS settings (
         id INTEGER PRIMARY KEY,
         enterDistance REAL NOT NULL,
         exitDistance REAL NOT NULL,
@@ -91,49 +91,48 @@ class DatabaseHelper {
       )
     ''');
 
-    // Insert default settings
-    await db.insert('settings', {
-      'id': 1,
-      'enterDistance': 300.0,
-      'exitDistance': 150.0,
-      'enterDelaySec': 60,
-      'exitDelaySec': 60,
-      'dailyWorkHours': 7,
-      'employeeName': '',
-      'employeeAddress': '',
-      'employerName': '',
-      'employerAddress': '',
-      'cityPdf': '',
-      'badgeMode': 'OFFICE',
-      'homeLatitude': 0.0,
-      'homeLongitude': 0.0,
-      'travelTimeMin': 0,
-      'depotStartHour': 7,
-      'depotStartMinute': 0,
-      'depotEndHour': 17,
-      'depotEndMinute': 0,
-      'depotDailyAdjustMin': 0,
-      'lunchBreakEnabled': 0,
-      'lunchStartHour': 12,
-      'lunchStartMin': 0,
-      'lunchEndHour': 14,
-      'lunchEndMin': 0,
-      'lunchDurationMin': 45,
-      'lunchWindowStartHour': 12,
-      'lunchWindowStartMinute': 0,
-      'lunchWindowEndHour': 14,
-      'lunchWindowEndMinute': 0,
-      'lunchMinDurationMin': 45,
-      'lunchDefaultDurationMin': 45,
-    });
+    // Insert default settings if not exists
+    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM settings')) ?? 0;
+    if (count == 0) {
+      await db.insert('settings', {
+        'id': 1,
+        'enterDistance': 300.0,
+        'exitDistance': 150.0,
+        'enterDelaySec': 60,
+        'exitDelaySec': 60,
+        'dailyWorkHours': 7,
+        'employeeName': '',
+        'employeeAddress': '',
+        'employerName': '',
+        'employerAddress': '',
+        'cityPdf': '',
+        'badgeMode': 'OFFICE',
+        'homeLatitude': 0.0,
+        'homeLongitude': 0.0,
+        'travelTimeMin': 0,
+        'depotStartHour': 7,
+        'depotStartMinute': 0,
+        'depotEndHour': 17,
+        'depotEndMinute': 0,
+        'depotDailyAdjustMin': 0,
+        'lunchBreakEnabled': 0,
+        'lunchStartHour': 12,
+        'lunchStartMin': 0,
+        'lunchEndHour': 14,
+        'lunchEndMin': 0,
+        'lunchDurationMin': 45,
+        'lunchWindowStartHour': 12,
+        'lunchWindowStartMinute': 0,
+        'lunchWindowEndHour': 14,
+        'lunchWindowEndMinute': 0,
+        'lunchMinDurationMin': 45,
+        'lunchDefaultDurationMin': 45,
+      });
+    }
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 3) {
-      await db.execute('DROP TABLE IF EXISTS settings');
-      await db.execute('DROP TABLE IF EXISTS presence');
-      await _createDB(db, newVersion);
-    }
+    await _createDB(db, newVersion);
   }
 
   // Presence methods
