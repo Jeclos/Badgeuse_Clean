@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'data/database_helper.dart';
 import 'data/models.dart';
@@ -40,17 +41,19 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const MainScreen(),
-    const LocationsScreen(),
-    const StatisticsScreen(),
-    const SettingsScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final screens = [
+      const MainScreen(),
+      const LocationsScreen(),
+      const StatisticsScreen(),
+      const SettingsScreen(),
+    ];
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: screens,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
@@ -92,11 +95,21 @@ class _MainScreenState extends State<MainScreen> {
   List<PresenceEntity> _presences = [];
   List<WorkLocationEntity> _workLocations = [];
   bool _isLoading = true;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _loadData();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
