@@ -11,10 +11,18 @@ class WorkTimeCalculator {
     int? lastEnterTime;
 
     for (var p in sorted) {
-      if (p.type == 'ENTRÉE') {
+      if (p.type == 'ENTRÉE' || p.type.startsWith('AUTO_')) {
         lastEnterTime = p.timestamp;
-      } else if (p.type == 'SORTIE' && lastEnterTime != null) {
-        totalMillis += (p.timestamp - lastEnterTime);
+      } else if ((p.type == 'SORTIE' || p.type.startsWith('AUTO_')) && lastEnterTime != null) {
+        var start = lastEnterTime;
+        var end = p.timestamp;
+
+        // Mode Depot rules
+        if (settings != null && settings.badgeMode == 'DEPOT') {
+          // Depot adjustments if applicable
+        }
+
+        totalMillis += (end - start);
         lastEnterTime = null;
       }
     }
@@ -30,9 +38,7 @@ class WorkTimeCalculator {
     // Déduction de la pause déjeuner si activée
     if (settings != null && settings.lunchBreakEnabled && totalMillis > 0) {
       final lunchMillis = settings.lunchDurationMin * 60 * 1000;
-      // Appliquer la déduction si la durée dépasse la pause
       if (totalMillis > lunchMillis) {
-        // Simple déduction ou logique de plage
         totalMillis -= lunchMillis;
       }
     }
