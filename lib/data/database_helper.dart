@@ -20,7 +20,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -132,6 +132,9 @@ class DatabaseHelper {
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    await db.execute('DROP TABLE IF EXISTS presence');
+    await db.execute('DROP TABLE IF EXISTS work_locations');
+    await db.execute('DROP TABLE IF EXISTS settings');
     await _createDB(db, newVersion);
   }
 
@@ -154,8 +157,8 @@ class DatabaseHelper {
 
   // Work Locations methods
   Future<int> insertWorkLocation(WorkLocationEntity location) async {
-    final db = await instance.database;
-    return await db.insert('work_locations', location.toMap());
+    final dbInstance = await instance.database;
+    return await dbInstance.insert('work_locations', location.toMap());
   }
 
   Future<List<WorkLocationEntity>> getAllWorkLocations() async {
