@@ -1,26 +1,25 @@
-import 'package:csv/csv.dart';
-import 'package:flutter/foundation.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../data/models.dart';
 
 class CsvExport {
-  static String generateCsv(List<PresenceEntity> presences) {
-    List<List<dynamic>> rows = [];
-    // Header
-    rows.add(['ID', 'Timestamp', 'Date', 'Type', 'Lieu']);
+  static Future<void> exportAndShareCsv(List<PresenceEntity> presences, {SettingsEntity? settings}) async {
+    final directory = await getTemporaryDirectory();
+    final now = DateTime.now();
+    final file = File('${directory.path}/releve_heures_${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}.csv');
+
+    final buffer = StringBuffer();
+    buffer.writeln('date,work_location,type,timestamp');
 
     for (var p in presences) {
       final date = DateTime.fromMillisecondsSinceEpoch(p.timestamp);
-      final dateStr = '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-      rows.add([p.id, p.timestamp, dateStr, p.type, p.locationName]);
+      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      buffer.writeln('$dateStr,"${p.locationName}","${p.type}",${p.timestamp}');
     }
 
-    return const ListToCsvConverter().convert(rows);
-  }
+    await file.writeAsString(buffer.toString());
 
-  static void exportCsv(List<PresenceEntity> presences) {
-    final csvData = generateCsv(presences);
-    if (kDebugMode) {
-      print(csvData);
-    }
+    await Share.shareXFiles([XFile(file.path)], text: 'Export CSV - Badgeuse Auto');
   }
 }

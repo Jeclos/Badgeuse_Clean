@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -5,7 +6,7 @@ import '../data/models.dart';
 import '../domain/calculators.dart';
 
 class PdfExport {
-  static Future<void> generateAndPrintPdf(List<PresenceEntity> presences, {SettingsEntity? settings}) async {
+  static Future<pw.Document> generatePdfDocument(List<PresenceEntity> presences, {SettingsEntity? settings}) async {
     final pdf = pw.Document();
 
     final now = DateTime.now();
@@ -120,7 +121,29 @@ class PdfExport {
       ),
     );
 
-    final bytes = await pdf.save();
-    await Printing.sharePdf(bytes: bytes, filename: 'releve_heures.pdf');
+    return pdf;
+  }
+
+  static Future<void> showPdfPreview(BuildContext context, List<PresenceEntity> presences, {SettingsEntity? settings}) async {
+    final pdfDoc = await generatePdfDocument(presences, settings: settings);
+    final bytes = await pdfDoc.save();
+    if (!context.mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: const Text('Aperçu PDF')),
+          body: PdfPreview(
+            build: (format) => bytes,
+            allowPrinting: true,
+            allowSharing: true,
+            canChangeOrientation: false,
+            canChangePageFormat: false,
+            pdfFileName: 'releve_heures.pdf',
+          ),
+        ),
+      ),
+    );
   }
 }
