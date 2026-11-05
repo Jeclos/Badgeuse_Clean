@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'data/database_helper.dart';
 import 'data/models.dart';
 import 'ui/locations_screen.dart';
@@ -334,6 +335,26 @@ class _MainScreenState extends State<MainScreen> {
       appBar: AppBar(
         title: const Text('Badgeuse Auto'),
         actions: [
+          FutureBuilder<bool>(
+            future: Geolocator.isLocationServiceEnabled(),
+            builder: (context, snapshot) {
+              final isGpsOn = snapshot.data ?? false;
+              return IconButton(
+                icon: Icon(
+                  isGpsOn ? Icons.gps_fixed : Icons.gps_off,
+                  color: isGpsOn ? Colors.green : Colors.red,
+                ),
+                tooltip: isGpsOn ? 'Signal GPS OK' : 'GPS Inactif',
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(isGpsOn ? 'Signal GPS : OK (Actif)' : 'Signal GPS : Inactif / Désactivé'),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
