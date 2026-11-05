@@ -18,7 +18,7 @@ class BackgroundGeofenceService {
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
         autoStart: true,
-        isForegroundMode: false,
+        isForegroundMode: true,
         notificationChannelId: 'badgeuse_auto_geofence',
         initialNotificationTitle: 'Badgeuse Auto',
         initialNotificationContent: 'Surveillance GPS et géofencing actifs',
@@ -37,6 +37,10 @@ class BackgroundGeofenceService {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
+  if (service is AndroidServiceInstance) {
+    service.setAsForegroundService();
+  }
+
   Timer.periodic(const Duration(seconds: 30), (timer) async {
     try {
       final settings = await DatabaseHelper.instance.getSettings();
@@ -116,7 +120,7 @@ void onStart(ServiceInstance service) async {
                   break;
                 }
               } else {
-                _pendingExitTimestamp = now;
+                _pendingExitTimestamp = loc.name != null ? now : now;
                 _pendingExitLocation = loc.name;
               }
             }
