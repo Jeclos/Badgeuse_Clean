@@ -80,31 +80,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     }).toList();
   }
 
-  void _exportCsv() {
-    final csv = CsvExport.generateCsv(_filteredPresences);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Export CSV'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: Text(csv),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fermer'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _exportCsv() async {
+    final settings = await DatabaseHelper.instance.getSettings();
+    await CsvExport.exportAndShareCsv(_filteredPresences, settings: settings);
   }
 
   Future<void> _exportPdf() async {
     final settings = await DatabaseHelper.instance.getSettings();
-    await PdfExport.generateAndPrintPdf(_filteredPresences, settings: settings);
+    await PdfExport.showPdfPreview(context, _filteredPresences, settings: settings);
   }
 
   @override
@@ -173,7 +156,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                         children: [
                           const Text('Période', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
                           DropdownButtonFormField<String>(
-                            value: _selectedPeriod,
+                            initialValue: _selectedPeriod,
                             decoration: const InputDecoration(border: UnderlineInputBorder()),
                             items: _periods.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
                             onChanged: (val) {
@@ -187,7 +170,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                           const SizedBox(height: 15),
                           const Text('Emplacement', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
                           DropdownButtonFormField<String>(
-                            value: _selectedLocation,
+                            initialValue: _selectedLocation,
                             decoration: const InputDecoration(border: UnderlineInputBorder()),
                             items: [
                               const DropdownMenuItem(value: 'Tous les lieux', child: Text('Tous les lieux')),

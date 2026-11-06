@@ -59,7 +59,7 @@ class PdfExport {
             pw.Center(
               child: pw.Text(
                 'RELEVÉ D’HEURES',
-                style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+                style: const pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
               ),
             ),
             pw.SizedBox(height: 20),
@@ -72,14 +72,14 @@ class PdfExport {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text(employeeName, style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                    pw.Text(employeeName, style: const pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     if (employeeAddress.isNotEmpty) pw.Text(employeeAddress),
                   ],
                 ),
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text('À l’attention de :', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                    pw.Text('À l’attention de :', style: const pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     pw.Text(employerName),
                     if (employerAddress.isNotEmpty) pw.Text(employerAddress),
                   ],
@@ -95,7 +95,7 @@ class PdfExport {
             pw.TableHelper.fromTextArray(
               headers: ['Date', 'Pointages', 'Durée'],
               data: tableData,
-              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+              headerStyle: const pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
               headerDecoration: const pw.BoxDecoration(color: PdfColors.blue700),
               cellPadding: const pw.EdgeInsets.all(8),
               columnWidths: {
@@ -112,7 +112,7 @@ class PdfExport {
               children: [
                 pw.Text(
                   'TOTAL PÉRIODE : ${WorkTimeCalculator.formatDuration(totalPeriodMillis)}',
-                  style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+                  style: const pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
                 ),
               ],
             ),

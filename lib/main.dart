@@ -8,12 +8,10 @@ import 'ui/statistics_screen.dart';
 import 'domain/calculators.dart';
 import 'services/background_geofence_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await BackgroundGeofenceService.initializeService();
   runApp(const BadgeuseApp());
-  Future.delayed(const Duration(seconds: 2), () {
-    BackgroundGeofenceService.initializeService();
-  });
 }
 
 class BadgeuseApp extends StatelessWidget {
@@ -886,15 +884,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
-                ExpansionTile(
-                  leading: const Icon(Icons.work),
-                  title: const Text('Lieux de travail'),
+                const ExpansionTile(
+                  leading: Icon(Icons.work),
+                  title: Text('Lieux de travail'),
                   children: [
                     Padding(
-                      padding: const EdgeInsets.all(8.0),
+                      padding: EdgeInsets.all(8.0),
                       child: SizedBox(
                         height: 400,
-                        child: const LocationsScreen(),
+                        child: LocationsScreen(),
                       ),
                     ),
                   ],
