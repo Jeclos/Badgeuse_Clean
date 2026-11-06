@@ -1,66 +1,34 @@
 import 'dart:async';
-import 'dart:ui';
-import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
+import 'package:geolocator/geolocator.dart';
 import '../data/database_helper.dart';
 import '../data/models.dart';
 import 'location_service.dart';
 
-int? _pendingEnterTimestamp;
-String? _pendingEnterLocation;
-
-int? _pendingExitTimestamp;
-String? _pendingExitLocation;
-
 class BackgroundGeofenceService {
-  static Future<void> initializeService() async {
-    final service = FlutterBackgroundService();
+  static StreamSubscription<Position>? _positionStreamSubscription;
 
-    await service.configure(
-      androidConfiguration: AndroidConfiguration(
-        onStart: onStart,
-        autoStart: true,
-        isForegroundMode: true,
-        notificationChannelId: 'badgeuse_auto_geofence',
-        initialNotificationTitle: 'Badgeuse Auto',
-        initialNotificationContent: 'Surveillance GPS et géofencing actifs',
-        foregroundServiceNotificationId: 888,
-      ),
-      iosConfiguration: IosConfiguration(
-        autoStart: true,
-        onForeground: onStart,
-        onBackground: (ServiceInstance service) => true,
-      ),
+  static Future<void> initializeService() async {
+    final hasPermission = await LocationService.instance.checkAndRequestPermissions();
+    if (!hasPermission) return;
+
+    _positionStreamSubscription?.cancel();
+
+    const locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 20, // Check every 20 meters moved
     );
 
-    await service.startService();
-  }
-}
-
-@pragma('vm:entry-point')
-void onStart(ServiceInstance service) async {
-  DartPluginRegistrant.ensureInitialized();
-
-  if (service is AndroidServiceInstance) {
-    service.setAsForegroundService();
+    _positionStreamSubscription = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen((Position position) async {
+      await _handlePositionUpdate(position);
+    });
   }
 
-  Timer.periodic(const Duration(seconds: 30), (timer) async {
-    if (service is AndroidServiceInstance) {
-      if (await service.isForegroundService()) {
-        service.setForegroundNotificationInfo(
-          title: "Badgeuse Auto",
-          content: "Surveillance GPS active en arrière-plan",
-        );
-      }
-    }
-
+  static Future<void> _handlePositionUpdate(Position position) async {
     try {
       final settings = await DatabaseHelper.instance.getSettings();
       if (settings.badgeMode == 'MANUAL') return;
-
-      final position = await LocationService.instance.getCurrentPosition();
-      if (position == null) return;
 
       final locations = await DatabaseHelper.instance.getAllWorkLocations();
       final activeLocations = locations.where((l) => l.isActive).toList();
@@ -69,8 +37,6 @@ void onStart(ServiceInstance service) async {
       final presences = await DatabaseHelper.instance.getAllPresences();
       final isWorking = presences.isNotEmpty && presences.first.type == 'ENTRÉE';
       final currentLocationName = isWorking ? presences.first.locationName : null;
-
-      final now = DateTime.now().millisecondsSinceEpoch;
 
       for (var loc in activeLocations) {
         final distance = LocationService.instance.calculateDistance(
@@ -81,67 +47,35 @@ void onStart(ServiceInstance service) async {
         );
 
         final radius = settings.enterDistance > 0 ? settings.enterDistance : 300.0;
-        final enterDelayMs = settings.enterDelaySec * 1000;
-        final exitDelayMs = settings.exitDelaySec * 1000;
 
         if (distance <= radius) {
-          // Inside location radius
-          _pendingExitTimestamp = null;
-          _pendingExitLocation = null;
-
           if (!isWorking) {
-            if (_pendingEnterLocation == loc.name) {
-              if (_pendingEnterTimestamp != null &&
-                  now - _pendingEnterTimestamp! >= enterDelayMs) {
-                // Confirm Entry after delay
-                await DatabaseHelper.instance.insertPresence(
-                  PresenceEntity(
-                    timestamp: now,
-                    type: 'ENTRÉE',
-                    locationName: loc.name,
-                  ),
-                );
-                _pendingEnterTimestamp = null;
-                _pendingEnterLocation = null;
-                break;
-              }
-            } else {
-              _pendingEnterTimestamp = now;
-              _pendingEnterLocation = loc.name;
-            }
+            await DatabaseHelper.instance.insertPresence(
+              PresenceEntity(
+                timestamp: DateTime.now().millisecondsSinceEpoch,
+                type: 'ENTRÉE',
+                locationName: loc.name,
+              ),
+            );
+            break;
           }
         } else {
-          // Outside location radius
-          _pendingEnterTimestamp = null;
-          _pendingEnterLocation = null;
-
           if (isWorking && currentLocationName == loc.name) {
             if (distance > radius + 30) {
-              if (_pendingExitLocation == loc.name) {
-                if (_pendingExitTimestamp != null &&
-                    now - _pendingExitTimestamp! >= exitDelayMs) {
-                  // Confirm Exit after delay & verification
-                  await DatabaseHelper.instance.insertPresence(
-                    PresenceEntity(
-                      timestamp: now,
-                      type: 'SORTIE',
-                      locationName: loc.name,
-                    ),
-                  );
-                  _pendingExitTimestamp = null;
-                  _pendingExitLocation = null;
-                  break;
-                }
-              } else {
-                _pendingExitTimestamp = now;
-                _pendingExitLocation = loc.name;
-              }
+              await DatabaseHelper.instance.insertPresence(
+                PresenceEntity(
+                  timestamp: DateTime.now().millisecondsSinceEpoch,
+                  type: 'SORTIE',
+                  locationName: loc.name,
+                ),
+              );
+              break;
             }
           }
         }
       }
     } catch (e) {
-      // Handle background error
+      // Handle error
     }
-  });
+  }
 }
