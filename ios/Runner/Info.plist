@@ -72,5 +72,9 @@
 	<string>Cette application a besoin de votre position en arrière-plan pour automatiser le pointage.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Cette application a besoin de votre position en arrière-plan pour automatiser le pointage.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>
