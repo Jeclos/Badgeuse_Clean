@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import '../data/database_helper.dart';
 import '../data/models.dart';
 import 'location_service.dart';
@@ -18,7 +20,7 @@ class BackgroundGeofenceService {
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
         autoStart: true,
-        isForegroundMode: false,
+        isForegroundMode: true,
         notificationChannelId: 'badgeuse_auto_geofence',
         initialNotificationTitle: 'Badgeuse Auto',
         initialNotificationContent: 'Surveillance GPS et géofencing actifs',
@@ -37,7 +39,22 @@ class BackgroundGeofenceService {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
+  DartPluginRegistrant.ensureInitialized();
+
+  if (service is AndroidServiceInstance) {
+    service.setAsForegroundService();
+  }
+
   Timer.periodic(const Duration(seconds: 30), (timer) async {
+    if (service is AndroidServiceInstance) {
+      if (await service.isForegroundService()) {
+        service.setForegroundNotificationInfo(
+          title: "Badgeuse Auto",
+          content: "Surveillance GPS active en arrière-plan",
+        );
+      }
+    }
+
     try {
       final settings = await DatabaseHelper.instance.getSettings();
       if (settings.badgeMode == 'MANUAL') return;
