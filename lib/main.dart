@@ -189,6 +189,62 @@ class _MainScreenState extends State<MainScreen> {
     await _loadData();
   }
 
+  void _showDayDetailsDialog(String dayKey, List<PresenceEntity> dayPresences) {
+    dayPresences.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final dateParts = dayKey.split('-');
+    final titleDate = '${dateParts[2]}/${dateParts[1]}/${dateParts[0]}';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Pointages du $titleDate'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: dayPresences.length,
+            itemBuilder: (context, index) {
+              final item = dayPresences[index];
+              final date = DateTime.fromMillisecondsSinceEpoch(item.timestamp);
+              return ListTile(
+                leading: Icon(
+                  item.type == 'ENTRÉE' ? Icons.arrow_downward : Icons.arrow_upward,
+                  color: item.type == 'ENTRÉE' ? Colors.green : Colors.red,
+                ),
+                title: Text('${item.type} (${item.locationName})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, size: 20),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _showEditPresenceDialog(item);
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        await _deletePresence(item.id!);
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
+  }
   void _showEditPresenceDialog(PresenceEntity presence) {
     DateTime selectedDate = DateTime.fromMillisecondsSinceEpoch(presence.timestamp);
     TimeOfDay selectedTime = TimeOfDay.fromDateTime(selectedDate);
@@ -449,48 +505,45 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                   const SizedBox(height: 10),
                   Expanded(
-                    child: _presences.isEmpty
-                        ? const Center(
-                            child: Text('Aucun pointage pour le moment'),
-                          )
-                        : ListView.builder(
-                            itemCount: _presences.length,
-                            itemBuilder: (context, index) {
-                              final item = _presences[index];
-                              final date = DateTime.fromMillisecondsSinceEpoch(
-                                  item.timestamp);
-                              return Card(
-                                margin: const EdgeInsets.symmetric(vertical: 6),
-                                child: ListTile(
-                                  leading: Icon(
-                                    item.type == 'ENTRÉE'
-                                        ? Icons.arrow_downward
-                                        : Icons.arrow_upward,
-                                    color: item.type == 'ENTRÉE'
-                                        ? Colors.green
-                                        : Colors.red,
-                                  ),
-                                  title: Text('${item.type} (${item.locationName})',
-                                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  subtitle: Text(
-                                      '${date.day}/${date.month}/${date.year} à ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}'),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.edit, size: 20),
-                                        onPressed: () => _showEditPresenceDialog(item),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete, size: 20, color: Colors.red),
-                                        onPressed: () => _deletePresence(item.id!),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                    child: () {
+                      final Map<String, List<PresenceEntity>> daysMap = {};
+                      for (var p in _presences) {
+                        final date = DateTime.fromMillisecondsSinceEpoch(p.timestamp);
+                        final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                        daysMap.putIfAbsent(key, () => []).add(p);
+                      }
+                      final sortedDays = daysMap.keys.toList()..sort((a, b) => b.compareTo(a));
+
+                      if (sortedDays.isEmpty) {
+                        return const Center(child: Text('Aucun pointage pour le moment'));
+                      }
+
+                      return ListView.builder(
+                        itemCount: sortedDays.length,
+                        itemBuilder: (context, index) {
+                          final dayKey = sortedDays[index];
+                          final dayPresences = daysMap[dayKey]!;
+                          dayPresences.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+                          final dateParts = dayKey.split('-');
+                          final dateStr = '${dateParts[2]}/${dateParts[1]}/${dateParts[0]}';
+                          
+                          final workedMillis = WorkTimeCalculator.calculateWorkedTime(dayPresences);
+                          final durationStr = WorkTimeCalculator.formatDuration(workedMillis);
+
+                          return Card(
+                            margin: const EdgeInsets.symmetric(vertical: 6),
+                            child: ListTile(
+                              leading: const Icon(Icons.calendar_today, color: Colors.blue),
+                              title: Text('Journée du $dateStr', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('Temps travaillé : $durationStr (${dayPresences.length} pointage${dayPresences.length > 1 ? 's' : ''})'),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => _showDayDetailsDialog(dayKey, dayPresences),
+                            ),
+                          );
+                        },
+                      );
+                    }(),
                   ),
                 ],
               ),
