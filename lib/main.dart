@@ -325,8 +325,14 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalWorkedMillis = WorkTimeCalculator.calculateWorkedTime(_presences);
-    final workedTimeStr = WorkTimeCalculator.formatDuration(totalWorkedMillis);
+    final now = DateTime.now();
+    final todayPresences = _presences.where((p) {
+      final date = DateTime.fromMillisecondsSinceEpoch(p.timestamp);
+      return date.year == now.year && date.month == now.month && date.day == now.day;
+    }).toList();
+
+    final todayWorkedMillis = WorkTimeCalculator.calculateWorkedTime(todayPresences);
+    final workedTimeStr = WorkTimeCalculator.formatDuration(todayWorkedMillis);
     final isWorking = _presences.isNotEmpty && _presences.first.type == 'ENTRÉE';
 
     return Scaffold(
