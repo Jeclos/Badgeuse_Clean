@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../data/database_helper.dart';
 import '../data/models.dart';
 import 'location_service.dart';
@@ -12,6 +13,22 @@ class BackgroundGeofenceService {
     if (!hasPermission) return;
 
     final service = FlutterBackgroundService();
+
+    // Create notification channel for Android to prevent startForeground crashes
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'badgeuse_auto_foreground',
+      'Badgeuse Auto Service',
+      description: 'Surveillance GPS en arrière-plan',
+      importance: Importance.low,
+    );
+
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
 
     await service.configure(
       androidConfiguration: AndroidConfiguration(
