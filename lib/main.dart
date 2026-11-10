@@ -200,7 +200,7 @@ class _MainScreenState extends State<MainScreen> {
       builder: (context) => AlertDialog(
         title: Text('Pointages du $titleDate'),
         content: SizedBox(
-          width: double.maxFinite,
+          width: MediaQuery.of(context).size.width * 0.85,
           child: ListView.builder(
             shrinkWrap: true,
             itemCount: dayPresences.length,
@@ -212,7 +212,12 @@ class _MainScreenState extends State<MainScreen> {
                   item.type == 'ENTRÉE' ? Icons.arrow_downward : Icons.arrow_upward,
                   color: item.type == 'ENTRÉE' ? Colors.green : Colors.red,
                 ),
-                title: Text('${item.type} (${item.locationName})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                title: Text(
+                  '${item.type} (${item.locationName})',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 subtitle: Text('${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}'),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
