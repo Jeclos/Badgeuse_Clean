@@ -1,74 +1,22 @@
 import 'dart:async';
-import 'dart:ui';
-import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../data/database_helper.dart';
 import '../data/models.dart';
 import 'location_service.dart';
 
 class BackgroundGeofenceService {
+  static Timer? _timer;
+
   static Future<void> initializeService() async {
     final hasPermission = await LocationService.instance.checkAndRequestPermissions();
     if (!hasPermission) return;
 
-    final service = FlutterBackgroundService();
-
-    // Create notification channel for Android to prevent startForeground crashes
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'badgeuse_auto_foreground',
-      'Badgeuse Auto Service',
-      description: 'Surveillance GPS en arrière-plan',
-      importance: Importance.low,
-    );
-
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-        FlutterLocalNotificationsPlugin();
-
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
-
-    await service.configure(
-      androidConfiguration: AndroidConfiguration(
-        onStart: onStart,
-        autoStart: true,
-        isForegroundMode: true,
-        notificationChannelId: 'badgeuse_auto_foreground',
-        initialNotificationTitle: 'Badgeuse Auto',
-        initialNotificationContent: 'Surveillance GPS active en arrière-plan',
-        foregroundServiceNotificationId: 888,
-      ),
-      iosConfiguration: IosConfiguration(
-        autoStart: true,
-        onForeground: onStart,
-        onBackground: (ServiceInstance service) => true,
-      ),
-    );
-
-    await service.startService();
-  }
-}
-
-@pragma('vm:entry-point')
-void onStart(ServiceInstance service) async {
-  DartPluginRegistrant.ensureInitialized();
-
-  if (service is AndroidServiceInstance) {
-    service.setAsForegroundService();
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      await _checkLocation();
+    });
   }
 
-  Timer.periodic(const Duration(seconds: 30), (timer) async {
-    if (service is AndroidServiceInstance) {
-      if (await service.isForegroundService()) {
-        service.setForegroundNotificationInfo(
-          title: "Badgeuse Auto",
-          content: "Surveillance GPS active en arrière-plan",
-        );
-      }
-    }
-
+  static Future<void> _checkLocation() async {
     try {
       final settings = await DatabaseHelper.instance.getSettings();
       if (settings.badgeMode == 'MANUAL') return;
@@ -123,5 +71,5 @@ void onStart(ServiceInstance service) async {
     } catch (e) {
       // Handle error
     }
-  });
+  }
 }
