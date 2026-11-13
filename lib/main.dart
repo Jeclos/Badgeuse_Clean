@@ -8,9 +8,8 @@ import 'ui/statistics_screen.dart';
 import 'domain/calculators.dart';
 import 'services/background_geofence_service.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await BackgroundGeofenceService.initializeService();
   runApp(const BadgeuseApp());
 }
 
@@ -101,7 +100,8 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _loadData();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    BackgroundGeofenceService.initializeService();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       _loadData();
     });
   }

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:geolocator/geolocator.dart';
 import '../data/database_helper.dart';
 import '../data/models.dart';
@@ -11,31 +10,10 @@ class BackgroundGeofenceService {
 
   static Future<void> initializeService() async {
     final hasPermission = await LocationService.instance.checkAndRequestPermissions();
-    if (!hasPermission) return;
-
-    FlutterForegroundTask.init(
-      androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'badgeuse_auto_foreground',
-        channelName: 'Badgeuse Auto Service',
-        channelDescription: 'Surveillance GPS active en arrière-plan',
-      ),
-      iosNotificationOptions: const IOSNotificationOptions(
-        showNotification: true,
-        playSound: false,
-      ),
-      foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.repeat(30000),
-        allowWakeLock: true,
-        allowWifiLock: true,
-      ),
-    );
-
-    try {
-      await FlutterForegroundTask.startService(
-        notificationTitle: 'Badgeuse active',
-        notificationText: 'Détection de présence en cours',
-      );
-    } catch (_) {}
+    if (!hasPermission) {
+      debugPrint('GEOFENCE: permission refusée');
+      return;
+    }
 
     _positionStreamSubscription?.cancel();
 
@@ -62,9 +40,20 @@ class BackgroundGeofenceService {
 
     _positionStreamSubscription = Geolocator.getPositionStream(
       locationSettings: locationSettings,
-    ).listen((Position position) async {
-      await _handlePositionUpdate(position);
-    });
+    ).listen(
+      (position) async {
+        debugPrint('GEOFENCE: position ${position.latitude}, ${position.longitude}');
+        await _handlePositionUpdate(position);
+      },
+      onError: (e) => debugPrint('GEOFENCE: erreur flux $e'),
+    );
+
+    // Vérification immédiate au démarrage
+    final first = await LocationService.instance.getCurrentPosition();
+    if (first != null) {
+      debugPrint('GEOFENCE: position initiale ${first.latitude}, ${first.longitude}');
+      await _handlePositionUpdate(first);
+    }
   }
 
   static Future<void> _handlePositionUpdate(Position position) async {
@@ -99,6 +88,7 @@ class BackgroundGeofenceService {
                 locationName: loc.name,
               ),
             );
+            debugPrint('GEOFENCE: ENTREE enregistrée pour ${loc.name}');
             break;
           }
         } else {
@@ -111,13 +101,14 @@ class BackgroundGeofenceService {
                   locationName: loc.name,
                 ),
               );
+              debugPrint('GEOFENCE: SORTIE enregistrée pour ${loc.name}');
               break;
             }
           }
         }
       }
     } catch (e) {
-      // Handle error
+      debugPrint('GEOFENCE: $e');
     }
   }
 }
