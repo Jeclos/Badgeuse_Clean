@@ -425,7 +425,7 @@ class _MainScreenState extends State<MainScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
+          : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,47 +492,50 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Expanded(
-                    child: () {
-                      final Map<String, List<PresenceEntity>> daysMap = {};
-                      for (var p in _presences) {
-                        final date = DateTime.fromMillisecondsSinceEpoch(p.timestamp);
-                        final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-                        daysMap.putIfAbsent(key, () => []).add(p);
-                      }
-                      final sortedDays = daysMap.keys.toList()..sort((a, b) => b.compareTo(a));
+                  () {
+                    final Map<String, List<PresenceEntity>> daysMap = {};
+                    for (var p in _presences) {
+                      final date = DateTime.fromMillisecondsSinceEpoch(p.timestamp);
+                      final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                      daysMap.putIfAbsent(key, () => []).add(p);
+                    }
+                    final sortedDays = daysMap.keys.toList()..sort((a, b) => b.compareTo(a));
 
-                      if (sortedDays.isEmpty) {
-                        return const Center(child: Text('Aucun pointage pour le moment'));
-                      }
-
-                      return ListView.builder(
-                        itemCount: sortedDays.length,
-                        itemBuilder: (context, index) {
-                          final dayKey = sortedDays[index];
-                          final dayPresences = daysMap[dayKey]!;
-                          dayPresences.sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-                          final dateParts = dayKey.split('-');
-                          final dateStr = '${dateParts[2]}/${dateParts[1]}/${dateParts[0]}';
-                          
-                          final workedMillis = WorkTimeCalculator.calculateWorkedTime(dayPresences);
-                          final durationStr = WorkTimeCalculator.formatDuration(workedMillis);
-
-                          return Card(
-                            margin: const EdgeInsets.symmetric(vertical: 6),
-                            child: ListTile(
-                              leading: const Icon(Icons.calendar_today, color: Colors.blue),
-                              title: Text('Journée du $dateStr', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text('Temps travaillé : $durationStr (${dayPresences.length} pointage${dayPresences.length > 1 ? 's' : ''})'),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () => _showDayDetailsDialog(dayKey, dayPresences),
-                            ),
-                          );
-                        },
+                    if (sortedDays.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.all(32.0),
+                        child: Center(child: Text('Aucun pointage pour le moment')),
                       );
-                    }(),
-                  ),
+                    }
+
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: sortedDays.length,
+                      itemBuilder: (context, index) {
+                        final dayKey = sortedDays[index];
+                        final dayPresences = daysMap[dayKey]!;
+                        dayPresences.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+                        final dateParts = dayKey.split('-');
+                        final dateStr = '${dateParts[2]}/${dateParts[1]}/${dateParts[0]}';
+                        
+                        final workedMillis = WorkTimeCalculator.calculateWorkedTime(dayPresences);
+                        final durationStr = WorkTimeCalculator.formatDuration(workedMillis);
+
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          child: ListTile(
+                            leading: const Icon(Icons.calendar_today, color: Colors.blue),
+                            title: Text('Journée du $dateStr', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('Temps travaillé : $durationStr (${dayPresences.length} pointage${dayPresences.length > 1 ? 's' : ''})'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => _showDayDetailsDialog(dayKey, dayPresences),
+                          ),
+                        );
+                      },
+                    );
+                  }(),
                 ],
               ),
             ),
