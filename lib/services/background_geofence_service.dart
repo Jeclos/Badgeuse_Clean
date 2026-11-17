@@ -56,20 +56,29 @@ Future<void> geofenceTriggered(GeofenceCallbackParams params) async {
     final last = presences.isNotEmpty ? presences.first : null;
     final isWorking = last != null && last.type == 'ENTRÉE';
 
+    final locations = await DatabaseHelper.instance.getAllWorkLocations();
+
     for (final g in params.geofences) {
+      final matches = locations.where((l) =>
+          (l.geofenceUid.isNotEmpty ? l.geofenceUid : l.name) == g.id);
+      if (matches.isEmpty) continue;
+      final name = matches.first.name;
+
       if (params.event == GeofenceEvent.enter && !isWorking) {
         await DatabaseHelper.instance.insertPresence(PresenceEntity(
           timestamp: DateTime.now().millisecondsSinceEpoch,
           type: 'ENTRÉE',
-          locationName: g.id,
+          locationName: name,
         ));
+        debugPrint('GEOFENCE: ENTREE $name');
       } else if (params.event == GeofenceEvent.exit &&
-          isWorking && last.locationName == g.id) {
+          isWorking && last.locationName == name) {
         await DatabaseHelper.instance.insertPresence(PresenceEntity(
           timestamp: DateTime.now().millisecondsSinceEpoch,
           type: 'SORTIE',
-          locationName: g.id,
+          locationName: name,
         ));
+        debugPrint('GEOFENCE: SORTIE $name');
       }
     }
   } catch (e) {
