@@ -1,114 +1,78 @@
-import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:native_geofence/native_geofence.dart';
 import '../data/database_helper.dart';
 import '../data/models.dart';
 import 'location_service.dart';
 
 class BackgroundGeofenceService {
-  static StreamSubscription<Position>? _positionStreamSubscription;
-
+  /// À appeler au démarrage ET à chaque modification des lieux ou des réglages.
   static Future<void> initializeService() async {
-    final hasPermission = await LocationService.instance.checkAndRequestPermissions();
-    if (!hasPermission) {
+    if (!await LocationService.instance.checkAndRequestPermissions()) {
       debugPrint('GEOFENCE: permission refusée');
       return;
     }
 
-    _positionStreamSubscription?.cancel();
-
-    late LocationSettings locationSettings;
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      locationSettings = AndroidSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 20,
-        foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationTitle: 'Badgeuse active',
-          notificationText: 'Détection de présence en cours',
-          enableWakeLock: true,
-        ),
-      );
-    } else {
-      locationSettings = AppleSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 20,
-        allowBackgroundLocationUpdates: true,
-        pauseLocationUpdatesAutomatically: false,
-        showBackgroundLocationIndicator: true,
-      );
-    }
-
-    _positionStreamSubscription = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen(
-      (position) async {
-        debugPrint('GEOFENCE: position ${position.latitude}, ${position.longitude}');
-        await _handlePositionUpdate(position);
-      },
-      onError: (e) => debugPrint('GEOFENCE: erreur flux $e'),
-    );
-
-    // Vérification immédiate au démarrage
-    final first = await LocationService.instance.getCurrentPosition();
-    if (first != null) {
-      debugPrint('GEOFENCE: position initiale ${first.latitude}, ${first.longitude}');
-      await _handlePositionUpdate(first);
-    }
-  }
-
-  static Future<void> _handlePositionUpdate(Position position) async {
     try {
+      await NativeGeofenceManager.instance.initialize();
+      await NativeGeofenceManager.instance.removeAllGeofences();
+
       final settings = await DatabaseHelper.instance.getSettings();
       if (settings.badgeMode == 'MANUAL') return;
 
       final locations = await DatabaseHelper.instance.getAllWorkLocations();
-      final activeLocations = locations.where((l) => l.isActive).toList();
-      if (activeLocations.isEmpty) return;
 
-      final presences = await DatabaseHelper.instance.getAllPresences();
-      final isWorking = presences.isNotEmpty && presences.first.type == 'ENTRÉE';
-      final currentLocationName = isWorking ? presences.first.locationName : null;
+      for (final loc in locations.where((l) => l.isActive)) {
+        final radius = loc.radius > 0
+            ? loc.radius
+            : (settings.enterDistance > 0 ? settings.enterDistance : 300.0);
 
-      for (var loc in activeLocations) {
-        final distance = LocationService.instance.calculateDistance(
-          position.latitude,
-          position.longitude,
-          loc.latitude,
-          loc.longitude,
+        final zone = Geofence(
+          id: loc.geofenceUid.isNotEmpty ? loc.geofenceUid : loc.name,
+          location: Location(latitude: loc.latitude, longitude: loc.longitude),
+          radiusMeters: radius.clamp(100.0, 5000.0).toDouble(),
+          triggers: {GeofenceEvent.enter, GeofenceEvent.exit},
+          iosSettings: const IosGeofenceSettings(initialTrigger: true),
+          androidSettings: const AndroidGeofenceSettings(
+            initialTriggers: {GeofenceEvent.enter},
+          ),
         );
-
-        final radius = loc.radius > 0 ? loc.radius : (settings.enterDistance > 0 ? settings.enterDistance : 300.0);
-
-        if (distance <= radius) {
-          if (!isWorking) {
-            await DatabaseHelper.instance.insertPresence(
-              PresenceEntity(
-                timestamp: DateTime.now().millisecondsSinceEpoch,
-                type: 'ENTRÉE',
-                locationName: loc.name,
-              ),
-            );
-            debugPrint('GEOFENCE: ENTREE enregistrée pour ${loc.name}');
-            break;
-          }
-        } else {
-          if (isWorking && currentLocationName == loc.name) {
-            if (distance > radius + 30) {
-              await DatabaseHelper.instance.insertPresence(
-                PresenceEntity(
-                  timestamp: DateTime.now().millisecondsSinceEpoch,
-                  type: 'SORTIE',
-                  locationName: loc.name,
-                ),
-              );
-              debugPrint('GEOFENCE: SORTIE enregistrée pour ${loc.name}');
-              break;
-            }
-          }
-        }
+        await NativeGeofenceManager.instance.createGeofence(zone, geofenceTriggered);
+        debugPrint('GEOFENCE: zone créée ${loc.name}');
       }
     } catch (e) {
-      debugPrint('GEOFENCE: $e');
+      debugPrint('GEOFENCE init error: $e');
     }
+  }
+}
+
+/// Tourne dans un isolate séparé, même appli fermée.
+@pragma('vm:entry-point')
+Future<void> geofenceTriggered(GeofenceCallbackParams params) async {
+  try {
+    final settings = await DatabaseHelper.instance.getSettings();
+    if (settings.badgeMode == 'MANUAL') return;
+
+    final presences = await DatabaseHelper.instance.getAllPresences();
+    final last = presences.isNotEmpty ? presences.first : null;
+    final isWorking = last != null && last.type == 'ENTRÉE';
+
+    for (final g in params.geofences) {
+      if (params.event == GeofenceEvent.enter && !isWorking) {
+        await DatabaseHelper.instance.insertPresence(PresenceEntity(
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+          type: 'ENTRÉE',
+          locationName: g.id,
+        ));
+      } else if (params.event == GeofenceEvent.exit &&
+          isWorking && last.locationName == g.id) {
+        await DatabaseHelper.instance.insertPresence(PresenceEntity(
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+          type: 'SORTIE',
+          locationName: g.id,
+        ));
+      }
+    }
+  } catch (e) {
+    debugPrint('GEOFENCE callback: $e');
   }
 }
