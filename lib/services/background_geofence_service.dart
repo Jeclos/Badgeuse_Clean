@@ -31,8 +31,8 @@ class BackgroundGeofenceService {
           location: Location(latitude: loc.latitude, longitude: loc.longitude),
           radiusMeters: radius.clamp(100.0, 5000.0).toDouble(),
           triggers: {GeofenceEvent.enter, GeofenceEvent.exit},
-          iosSettings: const IosGeofenceSettings(initialTrigger: true),
-          androidSettings: const AndroidGeofenceSettings(
+          iosSettings: IosGeofenceSettings(initialTrigger: true),
+          androidSettings: AndroidGeofenceSettings(
             initialTriggers: {GeofenceEvent.enter},
           ),
         );
@@ -72,7 +72,7 @@ Future<void> geofenceTriggered(GeofenceCallbackParams params) async {
         ));
         debugPrint('GEOFENCE: ENTREE $name');
       } else if (params.event == GeofenceEvent.exit &&
-          isWorking && last.locationName == name) {
+          isWorking && last?.locationName == name) {
         await DatabaseHelper.instance.insertPresence(PresenceEntity(
           timestamp: DateTime.now().millisecondsSinceEpoch,
           type: 'SORTIE',
