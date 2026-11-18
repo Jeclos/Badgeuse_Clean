@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/database_helper.dart';
 import '../data/models.dart';
 import '../services/location_service.dart';
+import '../services/background_geofence_service.dart';
 import 'map_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -98,6 +99,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
       _latController.clear();
       _lonController.clear();
       await _loadLocations();
+      await BackgroundGeofenceService.initializeService();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Lieu ajouté avec succès')),
@@ -114,11 +116,13 @@ class _LocationsScreenState extends State<LocationsScreen> {
       whereArgs: [loc.id],
     );
     await _loadLocations();
+    await BackgroundGeofenceService.initializeService();
   }
 
   Future<void> _deleteLocation(int id) async {
     await DatabaseHelper.instance.deleteWorkLocation(id);
     await _loadLocations();
+    await BackgroundGeofenceService.initializeService();
   }
 
   @override

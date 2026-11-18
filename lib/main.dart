@@ -101,7 +101,7 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _loadData();
     BackgroundGeofenceService.initializeService();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       _loadData();
     });
   }
@@ -600,6 +600,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     await DatabaseHelper.instance.updateSettings(updated);
+    await BackgroundGeofenceService.initializeService();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Configuration enregistrée avec succès')),
