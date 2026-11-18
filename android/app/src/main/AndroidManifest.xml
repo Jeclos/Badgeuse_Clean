@@ -44,7 +44,7 @@
             android:value="2" />
 
         <receiver
-            android:name="com.unact.nativegeofence.NativeGeofenceReceiver"
+            android:name="com.unact.nativegeofence.GeofenceBroadcastReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter>
@@ -52,7 +52,7 @@
             </intent-filter>
         </receiver>
         <service
-            android:name="com.unact.nativegeofence.NativeGeofenceService"
+            android:name="com.unact.nativegeofence.GeofenceService"
             android:enabled="true"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
