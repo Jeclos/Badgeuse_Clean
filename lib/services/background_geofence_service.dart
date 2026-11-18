@@ -8,13 +8,15 @@ class BackgroundGeofenceService {
   /// À appeler au démarrage ET à chaque modification des lieux ou des réglages.
   static Future<void> initializeService() async {
     debugPrint('GEOFENCE: init démarrée');
-    if (!await LocationService.instance.checkAndRequestPermissions()) {
-      debugPrint('GEOFENCE: permission refusée');
-      return;
-    }
-
     try {
       await NativeGeofenceManager.instance.initialize();
+
+      final hasPermission = await LocationService.instance.checkAndRequestPermissions();
+      if (!hasPermission) {
+        debugPrint('GEOFENCE: permission refusée ou non accordée');
+        return;
+      }
+
       await NativeGeofenceManager.instance.removeAllGeofences();
 
       final settings = await DatabaseHelper.instance.getSettings();
